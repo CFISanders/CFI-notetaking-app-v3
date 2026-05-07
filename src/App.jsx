@@ -25,9 +25,9 @@ const FONT_MONO = `"SF Mono", ui-monospace, "Menlo", monospace`;
 // ─── Training types ───────────────────────────────────────────────────────────
 
 const TRAINING_TYPES = {
-  IRA: { label: "Instrument Rating", short: "Instrument" },
-  CAX: { label: "Commercial / Complex", short: "Commercial" },
-  CFII: { label: "Flight Instructor — Instrument", short: "CFII" },
+  IRA:  { label: "Instrument Rating",              short: "Instrument", stages: ["Stage 1", "Stage 2", "Stage 3"] },
+  CAX:  { label: "Commercial / Complex",           short: "Commercial", stages: ["Stage 0", "Stage 1", "Stage 2", "Stage 3"] },
+  CFII: { label: "Flight Instructor — Instrument", short: "CFII",       stages: ["Stage 1", "Stage 2"] },
 };
 
 const MASTER_TOPICS = {
@@ -63,6 +63,16 @@ const ls = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
+// Format stage with optional Retrain (RT) suffix.
+// Accepts either a student object or stage+retrain values.
+function stageLabel(stageOrObj, retrain) {
+  if (typeof stageOrObj === "object" && stageOrObj !== null) {
+    return stageLabel(stageOrObj.stage, stageOrObj.retrain);
+  }
+  if (!stageOrObj) return "";
+  return retrain ? `${stageOrObj} RT` : stageOrObj;
+}
+
 // ─── Reusable Apple-style Card ────────────────────────────────────────────────
 function Card({ children, style }) {
   return (
@@ -97,6 +107,8 @@ function StudentSelector({ onSelect, onViewHistory }) {
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState("IRA");
+  const [stage, setStage] = useState("");
+  const [retrain, setRetrain] = useState(false);
   const [oneTime, setOneTime] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -105,9 +117,16 @@ function StudentSelector({ onSelect, onViewHistory }) {
     return ls.get(`cfi_lessons_${id}`, []).length;
   }
 
+  // Reset stage when training type changes
+  function selectType(k) {
+    setType(k);
+    setStage("");
+    setRetrain(false);
+  }
+
   function create() {
-    if (!name.trim()) return;
-    const s = { id: Date.now().toString(), name: name.trim(), trainingType: type, oneTime };
+    if (!name.trim() || !stage) return;
+    const s = { id: Date.now().toString(), name: name.trim(), trainingType: type, stage, retrain, oneTime };
     if (!oneTime) { const u = [s, ...students]; setStudents(u); ls.set("cfi_students", u); }
     onSelect(s);
   }
@@ -120,10 +139,14 @@ function StudentSelector({ onSelect, onViewHistory }) {
     setConfirmDelete(null);
   }
 
+  function resetForm() {
+    setShowNew(false); setName(""); setStage(""); setRetrain(false); setOneTime(false); setType("IRA");
+  }
+
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}>
       {/* Branding header */}
-      <div style={{ padding: "44px 24px 28px", textAlign: "center" }}>
+      <div style={{ padding: "max(44px, calc(env(safe-area-inset-top, 0px) + 20px)) 24px 28px", textAlign: "center" }}>
         <div style={{
           display: "inline-flex", alignItems: "center", gap: 8,
           padding: "5px 12px", borderRadius: 100,
@@ -161,9 +184,12 @@ function StudentSelector({ onSelect, onViewHistory }) {
                 outline: "none", marginBottom: 14,
               }} />
 
+            <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 8, fontFamily: FONT_TEXT }}>
+              Training
+            </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
               {Object.entries(TRAINING_TYPES).map(([k, m]) => (
-                <button key={k} onClick={() => setType(k)} style={{
+                <button key={k} onClick={() => selectType(k)} style={{
                   flex: 1, padding: "11px 4px", borderRadius: 10,
                   border: `1px solid ${type === k ? THEME.red : THEME.border}`,
                   background: type === k ? THEME.redDim : "transparent",
@@ -173,6 +199,48 @@ function StudentSelector({ onSelect, onViewHistory }) {
                 }}>{k}</button>
               ))}
             </div>
+
+            {/* Stage selector — appears once a training type is selected */}
+            {type && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 8, fontFamily: FONT_TEXT }}>
+                  Stage
+                </div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                  {TRAINING_TYPES[type].stages.map(s => (
+                    <button key={s} onClick={() => setStage(s)} style={{
+                      flex: "1 1 auto", minWidth: 80, padding: "11px 10px", borderRadius: 10,
+                      border: `1px solid ${stage === s ? THEME.red : THEME.border}`,
+                      background: stage === s ? THEME.redDim : "transparent",
+                      color: stage === s ? THEME.red : THEME.textSecondary,
+                      fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      fontFamily: FONT_TEXT, transition: "all 0.15s",
+                      whiteSpace: "nowrap",
+                    }}>{s}</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Retrain toggle — appears once stage is selected */}
+            {stage && (
+              <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 11, background: retrain ? THEME.redDim : THEME.surface2, border: `1px solid ${retrain ? THEME.red + "60" : THEME.border}`, cursor: "pointer", marginBottom: 14, transition: "all 0.15s" }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: 6,
+                  border: retrain ? "none" : `1.5px solid ${THEME.textQuaternary}`,
+                  background: retrain ? THEME.red : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, transition: "all 0.15s",
+                }}>
+                  {retrain && <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>}
+                </div>
+                <input type="checkbox" checked={retrain} onChange={e => setRetrain(e.target.checked)} style={{ display: "none" }} />
+                <div>
+                  <div style={{ fontSize: 15, color: THEME.text, fontWeight: 500 }}>This is a retrain</div>
+                  <div style={{ fontSize: 13, color: THEME.textSecondary, marginTop: 1 }}>Marks the lesson as a retrain (RT) of {stage}</div>
+                </div>
+              </label>
+            )}
 
             <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 11, background: THEME.surface2, border: `1px solid ${THEME.border}`, cursor: "pointer", marginBottom: 14 }}>
               <div style={{
@@ -192,16 +260,16 @@ function StudentSelector({ onSelect, onViewHistory }) {
             </label>
 
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={create} disabled={!name.trim()} style={{
+              <button onClick={create} disabled={!name.trim() || !stage} style={{
                 flex: 1, padding: "13px",
                 borderRadius: 11, border: "none",
-                background: name.trim() ? THEME.red : THEME.surface2,
-                color: name.trim() ? "#fff" : THEME.textTertiary,
+                background: (name.trim() && stage) ? THEME.red : THEME.surface2,
+                color: (name.trim() && stage) ? "#fff" : THEME.textTertiary,
                 fontWeight: 600, fontSize: 15,
-                cursor: name.trim() ? "pointer" : "not-allowed",
+                cursor: (name.trim() && stage) ? "pointer" : "not-allowed",
                 fontFamily: FONT_TEXT, letterSpacing: -0.2,
               }}>{oneTime ? "Start Flight" : "Save & Start"}</button>
-              <button onClick={() => { setShowNew(false); setName(""); setOneTime(false); }} style={{
+              <button onClick={resetForm} style={{
                 padding: "13px 18px", borderRadius: 11,
                 background: THEME.surface2, border: `1px solid ${THEME.border}`,
                 color: THEME.textSecondary, fontSize: 15, fontWeight: 500,
@@ -246,7 +314,7 @@ function StudentSelector({ onSelect, onViewHistory }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 16, color: THEME.text, fontWeight: 500, letterSpacing: -0.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
                       <div style={{ fontSize: 13, color: THEME.textSecondary, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span>{TRAINING_TYPES[s.trainingType].short}</span>
+                        <span>{s.trainingType}{s.stage ? ` · ${stageLabel(s)}` : ""}</span>
                         {count > 0 && (
                           <>
                             <span style={{ color: THEME.textQuaternary }}>·</span>
@@ -291,6 +359,7 @@ function StudentSelector({ onSelect, onViewHistory }) {
 function HobbsSection({ data, setData }) {
   // data = { out, in_, total, calculatedField }
   // calculatedField: "out" | "in_" | "total" | null — which field was auto-calculated
+  const [focusedField, setFocusedField] = useState(null);
 
   function update(field, value) {
     // Only allow numeric and decimal input (empty allowed for clearing)
@@ -407,6 +476,9 @@ function HobbsSection({ data, setData }) {
         {fields.map(({ key, label }) => {
           const isCalc = calcField === key;
           const hasValue = data[key] !== "" && data[key] != null;
+          const isFocused = focusedField === key;
+          // Show × only when this field is focused AND has a value
+          const showClear = isFocused && hasValue;
           return (
             <div key={key}>
               <div style={makeLabelStyle(isCalc)}>{label}</div>
@@ -415,11 +487,15 @@ function HobbsSection({ data, setData }) {
                   value={data[key]}
                   onChange={e => update(key, e.target.value)}
                   placeholder="—" inputMode="decimal"
-                  style={{ ...makeFieldStyle(isCalc), paddingRight: hasValue ? 30 : 10 }}
-                  onFocus={e => { if (!isCalc) e.target.style.borderColor = THEME.red; }}
-                  onBlur={e => { if (!isCalc) e.target.style.borderColor = THEME.border; }}
+                  style={{ ...makeFieldStyle(isCalc), paddingRight: showClear ? 30 : 10 }}
+                  onFocus={e => { setFocusedField(key); if (!isCalc) e.target.style.borderColor = THEME.red; }}
+                  onBlur={e => {
+                    // Delay so tap on × can register before blur clears it
+                    setTimeout(() => setFocusedField(curr => curr === key ? null : curr), 150);
+                    if (!isCalc) e.target.style.borderColor = THEME.border;
+                  }}
                 />
-                {hasValue && (
+                {showClear && (
                   <button
                     onMouseDown={e => e.preventDefault()}
                     onClick={() => update(key, "")}
@@ -452,14 +528,18 @@ function HobbsSection({ data, setData }) {
 
 // ─── Topic Picker ─────────────────────────────────────────────────────────────
 
-function TopicPicker({ trainingType, topics, setTopics, checked, setChecked }) {
-  const masterKey = `cfi_topics_${trainingType}`;
+function TopicPicker({ trainingType, stage, topics, setTopics, checked, setChecked }) {
+  // Storage key is per training-type + stage so each stage has its own topic list
+  const masterKey = stage ? `cfi_topics_${trainingType}_${stage}` : `cfi_topics_${trainingType}`;
   const [open, setOpen] = useState(false);
   const [editMaster, setEditMaster] = useState(false);
   const [custom, setCustom] = useState("");
-  const [masterList, setMasterList] = useState(() =>
-    ls.get(masterKey, MASTER_TOPICS[trainingType])
-  );
+  // Initial value: if stage-specific list doesn't exist, fall back to legacy training-type list, then defaults
+  const [masterList, setMasterList] = useState(() => {
+    const stageSpecific = stage ? localStorage.getItem(`cfi_topics_${trainingType}_${stage}`) : null;
+    if (stageSpecific) { try { return JSON.parse(stageSpecific); } catch {} }
+    return ls.get(`cfi_topics_${trainingType}`, MASTER_TOPICS[trainingType]);
+  });
 
   function toggle(t) {
     setTopics(ts => ts.includes(t) ? ts.filter(x => x !== t) : [...ts, t]);
@@ -515,6 +595,11 @@ function TopicPicker({ trainingType, topics, setTopics, checked, setChecked }) {
 
       {open && (
         <div style={{ padding: "12px 16px", borderBottom: topics.length ? `0.5px solid ${THEME.separator}` : "none", background: "rgba(255,255,255,0.015)" }}>
+          {stage && (
+            <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textTertiary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 8, fontFamily: FONT_TEXT }}>
+              Topics for {trainingType} · {stage}
+            </div>
+          )}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             {masterList.map((t, i) => {
               const on = topics.includes(t);
@@ -623,7 +708,16 @@ function TopicPicker({ trainingType, topics, setTopics, checked, setChecked }) {
 
 // ─── Approach Builder ────────────────────────────────────────────────────────
 
-const APPROACH_TYPES = ["ILS", "LPV", "LNAV/VNAV", "LNAV", "LOC", "VOR", "RNAV", "Visual", "Circling"];
+// Approach types config — some have minimums options, some don't
+const APPROACH_CONFIG = {
+  "ILS":      { mins: [] },
+  "LOC":      { mins: [] },
+  "RNAV":     { mins: ["LPV", "LNAV/VNAV", "LNAV", "LP"] },
+  "VOR":      { mins: [] },
+  "NDB":      { mins: [] },
+  "Visual":   { mins: [] },
+};
+const APPROACH_TYPES = Object.keys(APPROACH_CONFIG);
 
 function ApproachBuilder({ onInsert }) {
   const airportKey = "cfi_airports_used";
@@ -631,31 +725,63 @@ function ApproachBuilder({ onInsert }) {
   const [airport, setAirport] = useState("");
   const [runway, setRunway] = useState("");
   const [approachType, setApproachType] = useState("");
+  const [minimums, setMinimums] = useState("");
+  const [isCircling, setIsCircling] = useState(false);
+  const [circleRunway, setCircleRunway] = useState("");
 
   function selectAirport(code) {
     setAirport(code);
   }
 
+  function selectApproachType(type) {
+    setApproachType(type);
+    setMinimums(""); // reset minimums when changing type
+    setIsCircling(false);
+    setCircleRunway("");
+  }
+
+  // Whether this approach type requires minimums to be selected
+  const minsOptions = approachType ? (APPROACH_CONFIG[approachType]?.mins || []) : [];
+  const requiresMins = minsOptions.length > 0;
+  const minsReady = !requiresMins || !!minimums;
+  // Circling toggle is only available for RNAV approaches
+  const supportsCircling = approachType === "RNAV";
+  const circlingReady = !isCircling || circleRunway.trim().length > 0;
+
   function buildAndInsert() {
     if (!airport.trim() || !runway.trim() || !approachType) return;
+    if (requiresMins && !minimums) return;
+    if (isCircling && !circleRunway.trim()) return;
     const code = airport.trim().toUpperCase();
     const rw = runway.trim().toUpperCase();
+    const circleRw = circleRunway.trim().toUpperCase();
     // Save airport to history
     if (!airports.includes(code)) {
-      const next = [code, ...airports].slice(0, 12); // keep last 12
+      const next = [code, ...airports].slice(0, 12);
       setAirports(next); ls.set(airportKey, next);
     } else {
-      // Move to front (most recent)
       const next = [code, ...airports.filter(a => a !== code)].slice(0, 12);
       setAirports(next); ls.set(airportKey, next);
     }
-    // Format: "ILS 16 @ KADS — LPV"  but if approach type matches "ILS" prefix on runway, simplify
-    // Actually keeping it consistent: "{type} {runway} @ {airport}" — just use type as the lead
-    const formatted = `${approachType} ${rw} @ ${code}`;
+    // Build the formatted note
+    let formatted;
+    if (isCircling && supportsCircling) {
+      // RNAV circling: "RNAV 36 circle 18 @ KTRL"
+      formatted = `${approachType} ${rw} circle ${circleRw} @ ${code}`;
+    } else {
+      // Standard: "ILS 16 @ KADS" or "RNAV 18 @ KTRL (LPV)"
+      formatted = minimums
+        ? `${approachType} ${rw} @ ${code} (${minimums})`
+        : `${approachType} ${rw} @ ${code}`;
+    }
     onInsert(formatted);
-    // Reset for next
+    // Reset all fields for the next approach
+    setAirport("");
     setRunway("");
     setApproachType("");
+    setMinimums("");
+    setIsCircling(false);
+    setCircleRunway("");
   }
 
   function removeAirport(code, e) {
@@ -665,14 +791,14 @@ function ApproachBuilder({ onInsert }) {
     if (airport === code) setAirport("");
   }
 
-  const canInsert = airport.trim() && runway.trim() && approachType;
+  const canInsert = airport.trim() && runway.trim() && approachType && minsReady && circlingReady;
 
   return (
     <div style={{ padding: "4px 16px 14px" }}>
-      {/* Step 1: Airport */}
+      {/* Airport */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
-          1 — Airport
+          Airport
         </div>
         {/* Recent airports */}
         {airports.length > 0 && (
@@ -715,13 +841,20 @@ function ApproachBuilder({ onInsert }) {
           }} />
       </div>
 
-      {/* Step 2: Runway */}
+      {/* Runway */}
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
-          2 — Runway
+          Runway
         </div>
-        <input value={runway} onChange={e => setRunway(e.target.value.toUpperCase())}
-          placeholder="Runway (e.g. 16, 35L, 28R)"
+        <input value={runway}
+          onChange={e => {
+            // Strip all non-digits, max 2 chars (runways are 01-36)
+            const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+            setRunway(digits);
+          }}
+          placeholder="Runway number (e.g. 16)"
+          inputMode="numeric"
+          pattern="[0-9]*"
           style={{
             width: "100%", boxSizing: "border-box",
             background: THEME.surface2, border: `1px solid ${runway ? THEME.red : THEME.border}`,
@@ -732,14 +865,14 @@ function ApproachBuilder({ onInsert }) {
           }} />
       </div>
 
-      {/* Step 3: Approach type */}
+      {/* Approach type */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
-          3 — Approach Type
+          Approach Type
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
           {APPROACH_TYPES.map(t => (
-            <button key={t} onClick={() => setApproachType(t)} style={{
+            <button key={t} onClick={() => selectApproachType(t)} style={{
               background: approachType === t ? THEME.red : THEME.surface2,
               border: `1px solid ${approachType === t ? THEME.red : THEME.border}`,
               borderRadius: 100,
@@ -751,6 +884,71 @@ function ApproachBuilder({ onInsert }) {
           ))}
         </div>
       </div>
+
+      {/* Minimums (only if approach type requires them) */}
+      {requiresMins && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
+            Minimums Flown
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {minsOptions.map(m => (
+              <button key={m} onClick={() => setMinimums(m)} style={{
+                background: minimums === m ? THEME.red : THEME.surface2,
+                border: `1px solid ${minimums === m ? THEME.red : THEME.border}`,
+                borderRadius: 100,
+                color: minimums === m ? "#fff" : THEME.textSecondary,
+                fontSize: 13, padding: "6px 13px",
+                cursor: "pointer", fontFamily: FONT_TEXT, fontWeight: 600,
+                transition: "all 0.12s",
+              }}>{m}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Circling toggle (only available for RNAV) */}
+      {supportsCircling && (
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: isCircling ? THEME.redDim : THEME.surface2, border: `1px solid ${isCircling ? THEME.red + "60" : THEME.border}`, cursor: "pointer", transition: "all 0.15s" }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: 5,
+              border: isCircling ? "none" : `1.5px solid ${THEME.textQuaternary}`,
+              background: isCircling ? THEME.red : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, transition: "all 0.15s",
+            }}>
+              {isCircling && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+            </div>
+            <input type="checkbox" checked={isCircling} onChange={e => { setIsCircling(e.target.checked); if (!e.target.checked) setCircleRunway(""); }} style={{ display: "none" }} />
+            <span style={{ fontSize: 14, color: THEME.text, fontWeight: 500, fontFamily: FONT_TEXT }}>Circling approach</span>
+          </label>
+
+          {isCircling && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
+                Circle to Runway
+              </div>
+              <input value={circleRunway}
+                onChange={e => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
+                  setCircleRunway(digits);
+                }}
+                placeholder="Runway number (e.g. 18)"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: THEME.surface2, border: `1px solid ${circleRunway ? THEME.red : THEME.border}`,
+                  borderRadius: 10, padding: "10px 13px",
+                  color: THEME.text, fontSize: 14,
+                  fontFamily: FONT_MONO, letterSpacing: 0.3,
+                  outline: "none", transition: "border-color 0.15s",
+                }} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Preview + insert */}
       <div style={{
@@ -765,8 +963,16 @@ function ApproachBuilder({ onInsert }) {
         </div>
         <div style={{ fontSize: 15, color: canInsert ? THEME.text : THEME.textTertiary, fontFamily: FONT_TEXT, fontWeight: 500, letterSpacing: -0.2 }}>
           {canInsert
-            ? `${approachType} ${runway} @ ${airport.toUpperCase()}`
-            : "Fill all three fields above"}
+            ? (isCircling
+                ? `${approachType} ${runway} circle ${circleRunway} @ ${airport.toUpperCase()}`
+                : (minimums
+                    ? `${approachType} ${runway} @ ${airport.toUpperCase()} (${minimums})`
+                    : `${approachType} ${runway} @ ${airport.toUpperCase()}`))
+            : (isCircling && !circleRunway
+                ? "Enter circle-to runway"
+                : (requiresMins && approachType && !minimums
+                    ? "Select minimums to continue"
+                    : "Fill all fields above"))}
         </div>
       </div>
 
@@ -806,6 +1012,13 @@ function NotesSection({ trainingType, notes, setNotes }) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [activeSubInputIdx, setActiveSubInputIdx] = useState(null); // which note is showing sub-bullet input
   const [subInputText, setSubInputText] = useState("");
+  // Long-press drag state for reordering notes
+  const [draggingIdx, setDraggingIdx] = useState(null); // index of the note being dragged
+  const [dropTargetIdx, setDropTargetIdx] = useState(null); // where it would be dropped
+  const [dragY, setDragY] = useState(0); // visual Y offset of the dragged item
+  const longPressTimerRef = useRef(null);
+  const dragStartRef = useRef({ y: 0, scrollY: 0 });
+  const noteRefsRef = useRef({}); // map of index → DOM node
 
   const groups = ["Favorites", "Approach", ...Object.keys(snippets)];
   const isApproachTab = activeGroup === "Approach";
@@ -819,8 +1032,112 @@ function NotesSection({ trainingType, notes, setNotes }) {
     const next = favorites.includes(text) ? favorites.filter(f => f !== text) : [...favorites, text];
     setFavorites(next); ls.set(favKey, next);
   }
-  function addNote(text) { setNotes(n => [...n, { text, subs: [] }]); }
+  function addNote(text, isApproach = false) { setNotes(n => [...n, { text, subs: [], isApproach }]); }
   function removeNote(i) { setNotes(n => n.filter((_, idx) => idx !== i)); }
+  function moveNote(fromIdx, toIdx) {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0) return;
+    setNotes(n => {
+      if (toIdx >= n.length) return n;
+      const next = [...n];
+      const [item] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, item);
+      return next;
+    });
+  }
+
+  // ─── Long-press drag-and-drop for note reordering ──────────────────────────
+  // How it works:
+  // 1. User presses + holds on a note (~400ms) → enters drag mode (haptic feedback)
+  // 2. User drags up/down → we calculate which note they're hovering over
+  // 3. User releases → we move the dragged note to that position
+  function getNoteIndexAtY(clientY) {
+    let bestIdx = null;
+    Object.entries(noteRefsRef.current).forEach(([idxStr, el]) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) {
+        bestIdx = parseInt(idxStr, 10);
+      }
+    });
+    return bestIdx;
+  }
+
+  function startLongPress(idx, clientY, e) {
+    // Cancel any pending timer
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    dragStartRef.current = { y: clientY, scrollY: window.scrollY };
+    longPressTimerRef.current = setTimeout(() => {
+      setDraggingIdx(idx);
+      setDropTargetIdx(idx);
+      setDragY(0);
+      // Stronger haptic feedback on supported devices (iOS doesn't support vibrate, but Android does)
+      if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+      longPressTimerRef.current = null;
+    }, 350);
+  }
+
+  function cancelLongPress() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function handleDragMove(clientY) {
+    if (draggingIdx === null) return;
+    setDragY(clientY - dragStartRef.current.y);
+    const overIdx = getNoteIndexAtY(clientY);
+    if (overIdx !== null && overIdx !== dropTargetIdx) {
+      setDropTargetIdx(overIdx);
+    }
+  }
+
+  function endDrag() {
+    cancelLongPress();
+    if (draggingIdx !== null && dropTargetIdx !== null && draggingIdx !== dropTargetIdx) {
+      moveNote(draggingIdx, dropTargetIdx);
+    }
+    setDraggingIdx(null);
+    setDropTargetIdx(null);
+    setDragY(0);
+  }
+
+  // Global pointer/touch listeners while dragging or pre-drag
+  useEffect(() => {
+    if (draggingIdx === null && longPressTimerRef.current === null) return;
+
+    function onMove(e) {
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      // If we haven't entered drag mode yet, cancel long-press if user moves significantly (scrolling)
+      if (draggingIdx === null) {
+        const dy = Math.abs(clientY - dragStartRef.current.y);
+        if (dy > 12) cancelLongPress();
+        return;
+      }
+      // Prevent scrolling while dragging
+      if (e.cancelable) e.preventDefault();
+      handleDragMove(clientY);
+    }
+    function onEnd() {
+      if (draggingIdx !== null) endDrag();
+      else cancelLongPress();
+    }
+
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onEnd);
+    window.addEventListener("touchcancel", onEnd);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onEnd);
+    return () => {
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingIdx, dropTargetIdx]);
+
   function addSubBullet(noteIdx, subText) {
     setNotes(n => n.map((note, idx) => {
       if (idx !== noteIdx) return note;
@@ -1033,7 +1350,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
 
           {/* Approach builder (replaces snippet list when on Approach tab) */}
           {isApproachTab ? (
-            <ApproachBuilder onInsert={addNote} />
+            <ApproachBuilder onInsert={(text) => addNote(text, true)} />
           ) : (
           <div style={{ padding: "0 16px 14px" }}>
             {activeList.length === 0 && (
@@ -1141,12 +1458,16 @@ function NotesSection({ trainingType, notes, setNotes }) {
         }}>+</button>
       </div>
 
-      {/* Note list */}
+      {/* Note list with long-press drag-and-drop reordering */}
       {notes.map((note, i) => {
         const text = noteText(note);
         const subs = noteSubs(note);
+        const isApproach = typeof note !== "string" && note.isApproach;
         const isAddingSub = activeSubInputIdx === i;
         const hasSubs = subs.length > 0;
+        const isDragging = draggingIdx === i;
+        const isAnyDragging = draggingIdx !== null;
+        const isDropTarget = isAnyDragging && dropTargetIdx === i && draggingIdx !== i;
 
         function commitSub() {
           if (subInputText.trim()) {
@@ -1156,13 +1477,59 @@ function NotesSection({ trainingType, notes, setNotes }) {
         }
 
         return (
-          <div key={i} style={{
-            padding: "12px 16px",
-            borderBottom: i < notes.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
-          }}>
+          <div key={i}
+            ref={el => { noteRefsRef.current[i] = el; }}
+            onTouchStart={(e) => {
+              // Don't start drag if user touched a button or input
+              if (e.target.closest("button, input, textarea")) return;
+              startLongPress(i, e.touches[0].clientY, e);
+            }}
+            onMouseDown={(e) => {
+              if (e.target.closest("button, input, textarea")) return;
+              startLongPress(i, e.clientY, e);
+            }}
+            onTouchEnd={() => { if (draggingIdx === null) cancelLongPress(); }}
+            onMouseUp={() => { if (draggingIdx === null) cancelLongPress(); }}
+            style={{
+              padding: "12px 16px",
+              borderBottom: i < notes.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+              opacity: isDragging ? 0.6 : 1,
+              background: isDragging
+                ? THEME.surface2
+                : isDropTarget
+                  ? THEME.redDim
+                  : "transparent",
+              borderTop: isDropTarget && dropTargetIdx < (draggingIdx ?? -1) ? `2px solid ${THEME.red}` : undefined,
+              borderBottomColor: isDropTarget && dropTargetIdx > (draggingIdx ?? -1) ? THEME.red : undefined,
+              borderBottomWidth: isDropTarget && dropTargetIdx > (draggingIdx ?? -1) ? "2px" : undefined,
+              borderBottomStyle: isDropTarget && dropTargetIdx > (draggingIdx ?? -1) ? "solid" : undefined,
+              transform: isDragging ? `translateY(${dragY}px) scale(1.03)` : "none",
+              boxShadow: isDragging ? `0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px ${THEME.red}60` : "none",
+              borderRadius: isDragging ? 14 : 0,
+              transition: isDragging
+                ? "box-shadow 0.2s, border-radius 0.2s, opacity 0.15s, background 0.15s"
+                : "transform 0.18s, background 0.12s, opacity 0.12s",
+              zIndex: isDragging ? 10 : 1,
+              position: "relative",
+              touchAction: isAnyDragging ? "none" : "auto",
+              userSelect: isAnyDragging ? "none" : "auto",
+              WebkitUserSelect: isAnyDragging ? "none" : "auto",
+              cursor: isDragging ? "grabbing" : "default",
+            }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <span style={{ color: THEME.red, fontSize: 18, lineHeight: "20px", flexShrink: 0, marginTop: 1 }}>•</span>
-              <span style={{ flex: 1, fontSize: 15, color: THEME.text, fontFamily: FONT_TEXT, lineHeight: 1.5, letterSpacing: -0.2 }}>{text}</span>
+              <span style={{
+                color: THEME.red,
+                fontSize: isApproach ? 20 : 18,
+                lineHeight: "20px",
+                flexShrink: 0, marginTop: 1,
+              }}>{isApproach ? "■" : "•"}</span>
+              <span style={{
+                flex: 1,
+                fontSize: isApproach ? 17 : 15,
+                fontWeight: isApproach ? 700 : 400,
+                color: THEME.text, fontFamily: FONT_TEXT,
+                lineHeight: 1.4, letterSpacing: -0.3,
+              }}>{text}</span>
               <button onClick={() => { setActiveSubInputIdx(isAddingSub ? null : i); setSubInputText(""); }}
                 title="Add sub-bullet"
                 style={{
@@ -1185,7 +1552,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
             </div>
 
             {/* Sub-bullets */}
-            {(hasSubs || isAddingSub) && (
+            {(hasSubs || isAddingSub) && !isDragging && (
               <div style={{ marginLeft: 28, marginTop: 6 }}>
                 {subs.map((sub, si) => (
                   <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0" }}>
@@ -1232,7 +1599,6 @@ function NotesSection({ trainingType, notes, setNotes }) {
 // ─── Main Notes App ───────────────────────────────────────────────────────────
 
 function NotesApp({ student, onBack, onViewHistory }) {
-  const [title, setTitle] = useState("");
   const [hobbs, setHobbs] = useState({ out: "", in_: "", total: "", calculatedField: null });
   const [topics, setTopics] = useState([]);
   const [checkedTopics, setCheckedTopics] = useState({});
@@ -1240,9 +1606,30 @@ function NotesApp({ student, onBack, onViewHistory }) {
   const [copied, setCopied] = useState(false);
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-  function buildText() {
+  // Build text for clipboard — notes ONLY (clean, focused)
+  function buildClipboardText() {
     const lines = [];
-    lines.push(`${student.name} — ${student.trainingType}${title ? ` — ${title}` : ""}`);
+    if (!notes.length) return "";
+    notes.forEach(n => {
+      const text = typeof n === "string" ? n : n.text;
+      const subs = typeof n === "string" ? [] : (n.subs || []);
+      const isApproach = typeof n !== "string" && n.isApproach;
+      if (isApproach) {
+        // Larger/bolder visual style for approach headings
+        lines.push(`■ ${text.toUpperCase()}`);
+      } else {
+        lines.push(`• ${text}`);
+      }
+      subs.forEach(s => lines.push(`   ○ ${s}`));
+    });
+    return lines.join("\n");
+  }
+
+  // Build full text for archive — student info, HOBBS, topics, AND notes
+  function buildArchiveText() {
+    const lines = [];
+    const headerSuffix = student.stage ? ` — ${stageLabel(student)}` : "";
+    lines.push(`${student.name} — ${student.trainingType}${headerSuffix}`);
     lines.push(today);
     if (hobbs.out || hobbs.in_ || hobbs.total) {
       const parts = [];
@@ -1262,7 +1649,12 @@ function NotesApp({ student, onBack, onViewHistory }) {
       notes.forEach(n => {
         const text = typeof n === "string" ? n : n.text;
         const subs = typeof n === "string" ? [] : (n.subs || []);
-        lines.push(`• ${text}`);
+        const isApproach = typeof n !== "string" && n.isApproach;
+        if (isApproach) {
+          lines.push(`■ ${text.toUpperCase()}`);
+        } else {
+          lines.push(`• ${text}`);
+        }
         subs.forEach(s => lines.push(`   ○ ${s}`));
       });
     }
@@ -1270,14 +1662,23 @@ function NotesApp({ student, onBack, onViewHistory }) {
   }
 
   function copyAll() {
-    const text = buildText();
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2200);
-    });
+    // Clipboard gets ONLY the notes — not student info, HOBBS, or "Need to Cover"
+    const clipboardText = buildClipboardText();
+    if (clipboardText) {
+      navigator.clipboard.writeText(clipboardText).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2200);
+      });
+    } else {
+      // Still show "copied" feedback even when there are no notes, but write empty
+      navigator.clipboard.writeText("").then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2200);
+      });
+    }
 
-    // Archive the lesson — only if there's actual content
-    const hasContent = title || hobbs.out || hobbs.in_ || hobbs.total || topics.length || notes.length;
+    // Archive captures the FULL lesson — student info, HOBBS, topics, and notes
+    const hasContent = hobbs.out || hobbs.in_ || hobbs.total || topics.length || notes.length;
     if (!hasContent) return;
 
     const archiveKey = `cfi_lessons_${student.id}`;
@@ -1286,25 +1687,24 @@ function NotesApp({ student, onBack, onViewHistory }) {
       id: Date.now().toString(),
       timestamp: Date.now(),
       dateLabel: today,
-      title,
       hobbs,
       topics,
       checkedTopics,
       notes,
-      formattedText: text,
-      studentSnapshot: { name: student.name, trainingType: student.trainingType },
+      formattedText: buildArchiveText(),
+      studentSnapshot: { name: student.name, trainingType: student.trainingType, stage: student.stage, retrain: student.retrain },
     };
     ls.set(archiveKey, [lesson, ...existing]);
   }
 
   function clearAll() {
     if (!window.confirm("Start fresh? This clears the current session.")) return;
-    setTitle(""); setHobbs({ out: "", in_: "", total: "", calculatedField: null });
+    setHobbs({ out: "", in_: "", total: "", calculatedField: null });
     setTopics([]); setCheckedTopics({}); setNotes([]);
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: 100 }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>
       {/* iOS-style large title nav */}
       <div style={{
         position: "sticky", top: 0, zIndex: 50,
@@ -1312,6 +1712,7 @@ function NotesApp({ student, onBack, onViewHistory }) {
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
         <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -1339,28 +1740,18 @@ function NotesApp({ student, onBack, onViewHistory }) {
           <span style={{
             fontSize: 11, fontWeight: 600, letterSpacing: 1,
             color: THEME.red, textTransform: "uppercase", fontFamily: FONT_MONO,
-          }}>{student.trainingType}{student.oneTime ? " · One-time" : ""} · {today}</span>
+          }}>{student.trainingType}{student.stage ? ` · ${stageLabel(student)}` : ""}{student.oneTime ? " · One-time" : ""} · {today}</span>
         </div>
         <h1 style={{
           margin: 0, fontSize: 34, fontWeight: 700,
           letterSpacing: -1, color: THEME.text, fontFamily: FONT_DISPLAY,
           lineHeight: 1.1,
         }}>{student.name}</h1>
-        <input value={title} onChange={e => setTitle(e.target.value)}
-          placeholder="Session title (optional)"
-          style={{
-            width: "100%", boxSizing: "border-box",
-            background: "transparent", border: "none",
-            outline: "none", color: THEME.text,
-            fontSize: 18, fontFamily: FONT_TEXT, fontWeight: 400,
-            padding: "12px 0 4px", marginTop: 4,
-            letterSpacing: -0.3,
-          }} />
       </div>
 
       <div style={{ maxWidth: 580, margin: "0 auto", padding: "0 16px" }}>
         <HobbsSection data={hobbs} setData={setHobbs} />
-        <TopicPicker trainingType={student.trainingType} topics={topics} setTopics={setTopics} checked={checkedTopics} setChecked={setCheckedTopics} />
+        <TopicPicker trainingType={student.trainingType} stage={student.stage} topics={topics} setTopics={setTopics} checked={checkedTopics} setChecked={setCheckedTopics} />
         <NotesSection trainingType={student.trainingType} notes={notes} setNotes={setNotes} />
 
         {/* Actions */}
@@ -1384,16 +1775,19 @@ function NotesApp({ student, onBack, onViewHistory }) {
         </div>
 
         {/* Live preview */}
-        {(notes.length > 0 || topics.length > 0 || hobbs.out) && (
+        {notes.length > 0 && (
           <Card style={{ padding: 14, marginBottom: 20 }}>
-            <SectionLabel style={{ padding: "0 0 8px" }}>Preview</SectionLabel>
+            <SectionLabel style={{ padding: "0 0 8px" }}>Clipboard Preview</SectionLabel>
             <pre style={{
               margin: 0, fontSize: 13,
               color: THEME.textSecondary,
               fontFamily: FONT_MONO,
               whiteSpace: "pre-wrap", lineHeight: 1.55,
               maxHeight: 240, overflowY: "auto",
-            }}>{buildText()}</pre>
+            }}>{buildClipboardText()}</pre>
+            <div style={{ marginTop: 10, fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic" }}>
+              Only notes are copied. Full lesson (HOBBS, topics, etc.) is saved to History.
+            </div>
           </Card>
         )}
       </div>
@@ -1435,12 +1829,13 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}>
       <div style={{
         position: "sticky", top: 0, zIndex: 50,
         background: "rgba(0,0,0,0.85)",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
         <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
           <button onClick={onBack} style={{
@@ -1456,7 +1851,7 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
       <div style={{ maxWidth: 580, margin: "0 auto", padding: "8px 16px 16px" }}>
         <div style={{ marginBottom: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: THEME.red, textTransform: "uppercase", fontFamily: FONT_MONO }}>
-            {student.trainingType} · {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}
+            {student.trainingType}{student.stage ? ` · ${stageLabel(student)}` : ""} · {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}
           </span>
         </div>
         <h1 style={{ margin: 0, fontSize: 34, fontWeight: 700, letterSpacing: -1, color: THEME.text, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
@@ -1485,7 +1880,7 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
                     {formatDate(l.timestamp)}
                   </div>
                   <div style={{ fontSize: 16, color: THEME.text, fontWeight: 500, letterSpacing: -0.2, marginBottom: 2 }}>
-                    {l.title || "Untitled lesson"}
+                    {l.studentSnapshot?.stage ? `${l.studentSnapshot.trainingType} — ${stageLabel(l.studentSnapshot)}` : "Lesson"}
                   </div>
                   <div style={{ fontSize: 13, color: THEME.textSecondary }}>
                     {lessonSummary(l)}
@@ -1537,12 +1932,13 @@ function PastLessonDetail({ lesson, onBack }) {
   const notes = lesson.notes || [];
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}>
       <div style={{
         position: "sticky", top: 0, zIndex: 50,
         background: "rgba(0,0,0,0.85)",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
         <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
           <button onClick={onBack} style={{
@@ -1556,17 +1952,12 @@ function PastLessonDetail({ lesson, onBack }) {
       <div style={{ maxWidth: 580, margin: "0 auto", padding: "8px 16px 16px" }}>
         <div style={{ marginBottom: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: THEME.red, textTransform: "uppercase", fontFamily: FONT_MONO }}>
-            {lesson.studentSnapshot?.trainingType || ""} · {formatDate(lesson.timestamp)}
+            {lesson.studentSnapshot?.trainingType || ""}{lesson.studentSnapshot?.stage ? ` · ${stageLabel(lesson.studentSnapshot)}` : ""} · {formatDate(lesson.timestamp)}
           </span>
         </div>
         <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: -0.8, color: THEME.text, fontFamily: FONT_DISPLAY, lineHeight: 1.15 }}>
           {lesson.studentSnapshot?.name || "Lesson"}
         </h1>
-        {lesson.title && (
-          <div style={{ fontSize: 17, color: THEME.textSecondary, marginTop: 4, letterSpacing: -0.2 }}>
-            {lesson.title}
-          </div>
-        )}
 
         {(hobbs.out || hobbs.in_ || hobbs.total) && (
           <Card style={{ padding: "14px 16px", marginTop: 16, marginBottom: 14 }}>
@@ -1621,14 +2012,25 @@ function PastLessonDetail({ lesson, onBack }) {
             {notes.map((note, i) => {
               const text = typeof note === "string" ? note : note.text;
               const subs = typeof note === "string" ? [] : (note.subs || []);
+              const isApproach = typeof note !== "string" && note.isApproach;
               return (
                 <div key={i} style={{
                   padding: "12px 16px",
                   borderBottom: i < notes.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
                 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <span style={{ color: THEME.red, fontSize: 18, lineHeight: "20px", flexShrink: 0, marginTop: 1 }}>•</span>
-                    <span style={{ flex: 1, fontSize: 15, color: THEME.text, lineHeight: 1.5, letterSpacing: -0.2 }}>{text}</span>
+                    <span style={{
+                      color: THEME.red,
+                      fontSize: isApproach ? 20 : 18,
+                      lineHeight: "20px", flexShrink: 0, marginTop: 1,
+                    }}>{isApproach ? "■" : "•"}</span>
+                    <span style={{
+                      flex: 1,
+                      fontSize: isApproach ? 17 : 15,
+                      fontWeight: isApproach ? 700 : 400,
+                      color: THEME.text, lineHeight: 1.4,
+                      letterSpacing: -0.3,
+                    }}>{text}</span>
                   </div>
                   {subs.length > 0 && (
                     <div style={{ marginLeft: 28, marginTop: 6 }}>
