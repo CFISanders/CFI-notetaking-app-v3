@@ -102,7 +102,7 @@ function SectionLabel({ children, style }) {
 
 // ─── Student Selector ────────────────────────────────────────────────────────
 
-function StudentSelector({ onSelect, onViewHistory }) {
+function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
   const [students, setStudents] = useState(() => ls.get("cfi_students", []));
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
@@ -280,13 +280,32 @@ function StudentSelector({ onSelect, onViewHistory }) {
         ) : (
           <button onClick={() => setShowNew(true)} style={{
             width: "100%", padding: "16px",
-            borderRadius: 14, marginBottom: 20,
+            borderRadius: 14, marginBottom: 12,
             background: THEME.red, border: "none",
             color: "#fff", fontSize: 16, fontWeight: 600,
             cursor: "pointer", fontFamily: FONT_TEXT,
             letterSpacing: -0.2,
             boxShadow: `0 4px 20px ${THEME.redGlow}`,
           }}>+ New Student</button>
+        )}
+
+        {!showNew && (
+          <button onClick={onOpenDayNight} style={{
+            width: "100%", padding: "13px",
+            borderRadius: 12, marginBottom: 20,
+            background: THEME.surface, border: `1px solid ${THEME.border}`,
+            color: THEME.text, fontSize: 15, fontWeight: 500,
+            cursor: "pointer", fontFamily: FONT_TEXT,
+            letterSpacing: -0.2,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 10,
+          }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🌅</span>
+              <span>Day / Night Calculator</span>
+            </span>
+            <span style={{ color: THEME.textQuaternary, fontSize: 17 }}>›</span>
+          </button>
         )}
 
         {students.length > 0 && (
@@ -1051,15 +1070,26 @@ function NotesSection({ trainingType, notes, setNotes }) {
   // 2. User drags up/down → we calculate which note they're hovering over
   // 3. User releases → we move the dragged note to that position
   function getNoteIndexAtY(clientY) {
-    let bestIdx = null;
+    // Find the note that the cursor is closest to (by center point)
+    // This handles both dragging up and down, including whitespace between items
+    let closestIdx = null;
+    let closestDistance = Infinity;
+
     Object.entries(noteRefsRef.current).forEach(([idxStr, el]) => {
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      if (clientY >= rect.top && clientY <= rect.bottom) {
-        bestIdx = parseInt(idxStr, 10);
+      const centerY = (rect.top + rect.bottom) / 2;
+      const distance = Math.abs(clientY - centerY);
+
+      // Only consider items that are close enough (within 2x the item height)
+      const itemHeight = rect.bottom - rect.top;
+      if (distance < itemHeight * 1.5 && distance < closestDistance) {
+        closestDistance = distance;
+        closestIdx = parseInt(idxStr, 10);
       }
     });
-    return bestIdx;
+
+    return closestIdx;
   }
 
   function startLongPress(idx, clientY, e) {
@@ -1519,10 +1549,10 @@ function NotesSection({ trainingType, notes, setNotes }) {
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <span style={{
                 color: THEME.red,
-                fontSize: isApproach ? 20 : 18,
+                fontSize: isApproach ? 18 : 14,
                 lineHeight: "20px",
                 flexShrink: 0, marginTop: 1,
-              }}>{isApproach ? "■" : "•"}</span>
+              }}>{isApproach ? "✈" : "▸"}</span>
               <span style={{
                 flex: 1,
                 fontSize: isApproach ? 17 : 15,
@@ -1556,7 +1586,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
               <div style={{ marginLeft: 28, marginTop: 6 }}>
                 {subs.map((sub, si) => (
                   <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0" }}>
-                    <span style={{ color: THEME.textTertiary, fontSize: 13, marginTop: 2, flexShrink: 0 }}>○</span>
+                    <span style={{ color: THEME.textTertiary, fontSize: 13, marginTop: 2, flexShrink: 0 }}>•</span>
                     <span style={{ flex: 1, fontSize: 14, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.5 }}>{sub}</span>
                     <button onClick={() => removeSubBullet(i, si)} style={{
                       background: "transparent", border: "none", color: THEME.textQuaternary,
@@ -1598,7 +1628,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
 
 // ─── Main Notes App ───────────────────────────────────────────────────────────
 
-function NotesApp({ student, onBack, onViewHistory }) {
+function NotesApp({ student, onBack, onViewHistory, onOpenDayNight }) {
   const [hobbs, setHobbs] = useState({ out: "", in_: "", total: "", calculatedField: null });
   const [topics, setTopics] = useState([]);
   const [checkedTopics, setCheckedTopics] = useState({});
@@ -1615,12 +1645,14 @@ function NotesApp({ student, onBack, onViewHistory }) {
       const subs = typeof n === "string" ? [] : (n.subs || []);
       const isApproach = typeof n !== "string" && n.isApproach;
       if (isApproach) {
-        // Larger/bolder visual style for approach headings
-        lines.push(`■ ${text.toUpperCase()}`);
+        // Approaches use an airplane icon
+        lines.push(`✈ ${text}`);
       } else {
-        lines.push(`• ${text}`);
+        // Other main notes use a small triangle
+        lines.push(`▸ ${text}`);
       }
-      subs.forEach(s => lines.push(`   ○ ${s}`));
+      // Sub-bullets use a small indented bullet
+      subs.forEach(s => lines.push(`   • ${s}`));
     });
     return lines.join("\n");
   }
@@ -1651,11 +1683,11 @@ function NotesApp({ student, onBack, onViewHistory }) {
         const subs = typeof n === "string" ? [] : (n.subs || []);
         const isApproach = typeof n !== "string" && n.isApproach;
         if (isApproach) {
-          lines.push(`■ ${text.toUpperCase()}`);
+          lines.push(`✈ ${text}`);
         } else {
-          lines.push(`• ${text}`);
+          lines.push(`▸ ${text}`);
         }
-        subs.forEach(s => lines.push(`   ○ ${s}`));
+        subs.forEach(s => lines.push(`   • ${s}`));
       });
     }
     return lines.join("\n");
@@ -1755,7 +1787,7 @@ function NotesApp({ student, onBack, onViewHistory }) {
         <NotesSection trainingType={student.trainingType} notes={notes} setNotes={setNotes} />
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
           <button onClick={copyAll} style={{
             flex: 1,
             background: copied ? THEME.green : THEME.red,
@@ -1773,6 +1805,19 @@ function NotesApp({ student, onBack, onViewHistory }) {
             fontFamily: FONT_TEXT, fontWeight: 500,
           }}>Clear</button>
         </div>
+
+        {/* Solar Information shortcut */}
+        <button onClick={() => onOpenDayNight(hobbs.total || "")} style={{
+          width: "100%", padding: "11px",
+          background: "transparent", border: `1px solid ${THEME.border}`,
+          borderRadius: 11, color: THEME.textSecondary,
+          fontSize: 13, fontWeight: 500, cursor: "pointer",
+          fontFamily: FONT_TEXT, marginBottom: 16,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+          <span style={{ fontSize: 14 }}>🌅</span>
+          <span>Solar Information</span>
+        </button>
 
         {/* Live preview */}
         {notes.length > 0 && (
@@ -1911,8 +1956,28 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
 function PastLessonDetail({ lesson, onBack }) {
   const [copied, setCopied] = useState(false);
 
+  // Build notes-only clipboard text from the archived lesson — matches Copy Notes format
+  function buildNotesOnly() {
+    const archivedNotes = lesson.notes || [];
+    if (!archivedNotes.length) return "";
+    const lines = [];
+    archivedNotes.forEach(n => {
+      const text = typeof n === "string" ? n : n.text;
+      const subs = typeof n === "string" ? [] : (n.subs || []);
+      const isApproach = typeof n !== "string" && n.isApproach;
+      if (isApproach) {
+        lines.push(`✈ ${text}`);
+      } else {
+        lines.push(`▸ ${text}`);
+      }
+      subs.forEach(s => lines.push(`   • ${s}`));
+    });
+    return lines.join("\n");
+  }
+
   function copyAgain() {
-    navigator.clipboard.writeText(lesson.formattedText).then(() => {
+    const notesOnly = buildNotesOnly();
+    navigator.clipboard.writeText(notesOnly).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     });
@@ -2021,9 +2086,9 @@ function PastLessonDetail({ lesson, onBack }) {
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                     <span style={{
                       color: THEME.red,
-                      fontSize: isApproach ? 20 : 18,
+                      fontSize: isApproach ? 18 : 14,
                       lineHeight: "20px", flexShrink: 0, marginTop: 1,
-                    }}>{isApproach ? "■" : "•"}</span>
+                    }}>{isApproach ? "✈" : "▸"}</span>
                     <span style={{
                       flex: 1,
                       fontSize: isApproach ? 17 : 15,
@@ -2036,7 +2101,7 @@ function PastLessonDetail({ lesson, onBack }) {
                     <div style={{ marginLeft: 28, marginTop: 6 }}>
                       {subs.map((s, si) => (
                         <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0" }}>
-                          <span style={{ color: THEME.textTertiary, fontSize: 13, marginTop: 2 }}>○</span>
+                          <span style={{ color: THEME.textTertiary, fontSize: 13, marginTop: 2 }}>•</span>
                           <span style={{ flex: 1, fontSize: 14, color: THEME.textSecondary, lineHeight: 1.5 }}>{s}</span>
                         </div>
                       ))}
@@ -2063,10 +2128,892 @@ function PastLessonDetail({ lesson, onBack }) {
   );
 }
 
+
+// ─── Airports Database ───────────────────────────────────────────────────────
+const AIRPORTS = [
+  ["KATL","Hartsfield-Jackson Atlanta Intl",33.6407,-84.4277],
+  ["KLAX","Los Angeles Intl",33.9425,-118.4081],
+  ["KORD","Chicago O'Hare Intl",41.9742,-87.9073],
+  ["KDFW","Dallas/Fort Worth Intl",32.8998,-97.0403],
+  ["KDEN","Denver Intl",39.8561,-104.6737],
+  ["KJFK","John F Kennedy Intl",40.6398,-73.7789],
+  ["KSFO","San Francisco Intl",37.6213,-122.379],
+  ["KSEA","Seattle-Tacoma Intl",47.4502,-122.3088],
+  ["KLAS","Harry Reid Intl (Las Vegas)",36.084,-115.1537],
+  ["KMCO","Orlando Intl",28.4294,-81.3089],
+  ["KEWR","Newark Liberty Intl",40.6925,-74.1687],
+  ["KCLT","Charlotte Douglas Intl",35.214,-80.9431],
+  ["KPHX","Phoenix Sky Harbor Intl",33.4343,-112.0117],
+  ["KIAH","George Bush Intercontinental",29.9844,-95.3414],
+  ["KMIA","Miami Intl",25.7959,-80.287],
+  ["KBOS","Boston Logan Intl",42.3656,-71.0096],
+  ["KMSP","Minneapolis-Saint Paul Intl",44.8848,-93.2223],
+  ["KFLL","Fort Lauderdale-Hollywood Intl",26.0742,-80.1506],
+  ["KDTW","Detroit Metropolitan Wayne County",42.2124,-83.3534],
+  ["KPHL","Philadelphia Intl",39.8729,-75.2437],
+  ["KLGA","LaGuardia",40.7772,-73.8726],
+  ["KBWI","Baltimore/Washington Intl",39.1754,-76.6683],
+  ["KSLC","Salt Lake City Intl",40.7884,-111.9778],
+  ["KDCA","Ronald Reagan Washington National",38.8521,-77.0377],
+  ["KIAD","Washington Dulles Intl",38.9531,-77.4565],
+  ["KMDW","Chicago Midway Intl",41.7868,-87.7522],
+  ["KSAN","San Diego Intl",32.7338,-117.1933],
+  ["KTPA","Tampa Intl",27.9755,-82.5332],
+  ["KHOU","William P Hobby (Houston)",29.6454,-95.2789],
+  ["KPDX","Portland Intl",45.5887,-122.5975],
+  ["KSTL","St Louis Lambert Intl",38.7487,-90.37],
+  ["KAUS","Austin-Bergstrom Intl",30.1945,-97.6699],
+  ["KBNA","Nashville Intl",36.1245,-86.6782],
+  ["KOAK","Oakland Intl",37.7213,-122.2208],
+  ["KSAT","San Antonio Intl",29.5337,-98.4698],
+  ["KRDU","Raleigh-Durham Intl",35.8776,-78.7875],
+  ["KSJC","Norman Y Mineta San Jose Intl",37.3626,-121.929],
+  ["KSMF","Sacramento Intl",38.6954,-121.5908],
+  ["KMSY","Louis Armstrong New Orleans",29.9934,-90.258],
+  ["KCLE","Cleveland Hopkins Intl",41.4117,-81.8498],
+  ["KPIT","Pittsburgh Intl",40.4915,-80.2329],
+  ["KMCI","Kansas City Intl",39.2976,-94.7139],
+  ["KIND","Indianapolis Intl",39.7173,-86.2944],
+  ["KCMH","John Glenn Columbus Intl",39.998,-82.8919],
+  ["KMKE","General Mitchell Intl (Milwaukee)",42.9472,-87.8965],
+  ["KCVG","Cincinnati/Northern Kentucky Intl",39.0488,-84.6678],
+  ["KSDF","Louisville Muhammad Ali Intl",38.1744,-85.7361],
+  ["KMEM","Memphis Intl",35.0424,-89.9767],
+  ["KJAX","Jacksonville Intl",30.4941,-81.6878],
+  ["KRSW","Southwest Florida Intl",26.5362,-81.7552],
+  ["KPBI","Palm Beach Intl",26.6832,-80.0956],
+  ["KCHS","Charleston Intl",32.8986,-80.0405],
+  ["KORF","Norfolk Intl",36.8946,-76.2012],
+  ["KRIC","Richmond Intl",37.5052,-77.3197],
+  ["KGSP","Greenville-Spartanburg Intl",34.8957,-82.2189],
+  ["KBHM","Birmingham-Shuttlesworth Intl",33.5629,-86.7535],
+  ["KOKC","Will Rogers World (Oklahoma City)",35.3931,-97.6007],
+  ["KTUL","Tulsa Intl",36.1984,-95.8881],
+  ["KLIT","Bill and Hillary Clinton National",34.7294,-92.2243],
+  ["KOMA","Eppley Airfield (Omaha)",41.3032,-95.8941],
+  ["KDSM","Des Moines Intl",41.534,-93.6631],
+  ["KBOI","Boise Air Terminal",43.5644,-116.2228],
+  ["KGEG","Spokane Intl",47.6199,-117.5339],
+  ["KABQ","Albuquerque Intl Sunport",35.0402,-106.6092],
+  ["KTUS","Tucson Intl",32.1161,-110.941],
+  ["KELP","El Paso Intl",31.8072,-106.3781],
+  ["KBUR","Bob Hope (Burbank)",34.2007,-118.3585],
+  ["KSNA","John Wayne (Santa Ana)",33.6757,-117.8682],
+  ["KONT","Ontario Intl",34.056,-117.6012],
+  ["KLGB","Long Beach",33.8177,-118.1516],
+  ["KRNO","Reno-Tahoe Intl",39.4991,-119.7681],
+  ["KHNL","Daniel K Inouye Intl (Honolulu)",21.3245,-157.9251],
+  ["KANC","Ted Stevens Anchorage Intl",61.1744,-149.9961],
+  ["KBUF","Buffalo Niagara Intl",42.9405,-78.7322],
+  ["KROC","Greater Rochester Intl",43.1189,-77.6724],
+  ["KSYR","Syracuse Hancock Intl",43.1112,-76.1063],
+  ["KALB","Albany Intl",42.7483,-73.8017],
+  ["KBDL","Bradley Intl",41.9389,-72.6832],
+  ["KPVD","Theodore Francis Green State",41.724,-71.4283],
+  ["KMHT","Manchester-Boston Regional",42.9326,-71.4357],
+  ["KPWM","Portland Intl Jetport",43.6462,-70.3093],
+  ["KBTV","Burlington Intl",44.4719,-73.1533],
+  ["KBGM","Greater Binghamton",42.2087,-75.9798],
+  ["KISP","Long Island MacArthur",40.7952,-73.1002],
+  ["KSWF","New York Stewart Intl",41.5041,-74.1048],
+  ["KHPN","Westchester County",41.067,-73.7076],
+  ["KTEB","Teterboro",40.8501,-74.0608],
+  ["KFRG","Republic",40.7288,-73.4134],
+  ["KBED","Laurence G Hanscom Field",42.47,-71.289],
+  ["KBVY","Beverly Regional",42.5841,-70.9165],
+  ["KORH","Worcester Regional",42.2673,-71.8757],
+  ["KADS","Addison",32.9686,-96.8364],
+  ["KDAL","Dallas Love Field",32.8471,-96.8518],
+  ["KAFW","Fort Worth Alliance",32.9876,-97.3188],
+  ["KFTW","Fort Worth Meacham Intl",32.8198,-97.3624],
+  ["KFWS","Fort Worth Spinks",32.5654,-97.3084],
+  ["KGKY","Arlington Municipal",32.6638,-97.0942],
+  ["KGPM","Grand Prairie Municipal",32.6987,-97.0469],
+  ["KRBD","Dallas Executive",32.6809,-96.8682],
+  ["KMKN","Comanche County-City",31.9159,-98.6024],
+  ["KTRL","Terrell Municipal",32.7088,-96.2675],
+  ["KMWL","Mineral Wells Regional",32.7816,-98.0602],
+  ["KGYI","Grayson County (Sherman)",33.714,-96.6735],
+  ["KCNW","TSTC Waco",31.6378,-97.0741],
+  ["KACT","Waco Regional",31.6113,-97.2305],
+  ["KTYR","Tyler Pounds Regional",32.354,-95.4024],
+  ["KGGG","East Texas Regional",32.3839,-94.7115],
+  ["KLFK","Angelina County",31.234,-94.75],
+  ["KBPT","Jack Brooks Regional",29.9508,-94.0207],
+  ["KCLL","Easterwood Field (College Station)",30.5886,-96.3638],
+  ["KILE","Skylark Field (Killeen)",31.0859,-97.6864],
+  ["KGRK","Robert Gray AAF (Killeen)",31.0672,-97.8289],
+  ["KHRL","Valley Intl (Harlingen)",26.2285,-97.6544],
+  ["KBRO","Brownsville/South Padre",25.9068,-97.4259],
+  ["KMFE","McAllen Intl",26.1758,-98.2386],
+  ["KLRD","Laredo Intl",27.5438,-99.4616],
+  ["KCRP","Corpus Christi Intl",27.7704,-97.5012],
+  ["KVCT","Victoria Regional",28.8526,-96.9185],
+  ["KMAF","Midland Intl Air & Space Port",31.9425,-102.2019],
+  ["KECU","Edwards County",29.6443,-100.0193],
+  ["KSJT","San Angelo Regional",31.3577,-100.4963],
+  ["KABI","Abilene Regional",32.4113,-99.6819],
+  ["KLBB","Lubbock Preston Smith Intl",33.6636,-101.8228],
+  ["KAMA","Rick Husband Amarillo Intl",35.2194,-101.7059],
+  ["KGNV","Gainesville Municipal",33.6515,-97.1969],
+  ["KDTO","Denton Enterprise",33.2007,-97.1981],
+  ["KLNC","Lancaster Regional",32.5793,-96.7193],
+  ["KTKI","McKinney National",33.178,-96.5905],
+  ["KCXO","Conroe-North Houston Regional",30.3518,-95.4145],
+  ["KEFD","Ellington Field",29.6073,-95.1588],
+  ["KSGR","Sugar Land Regional",29.6223,-95.6566],
+  ["KIWS","West Houston",29.8181,-95.6726],
+  ["KLVJ","Pearland Regional",29.5208,-95.2418],
+  ["KEDC","Austin Executive",30.1976,-97.6699],
+  ["KGTU","Georgetown Municipal",30.6788,-97.6794],
+  ["KSSF","Stinson Municipal",29.337,-98.4712],
+  ["KFAT","Fresno Yosemite Intl",36.7762,-119.7181],
+  ["KCMA","Camarillo",34.2138,-119.0941],
+  ["KSBA","Santa Barbara Municipal",34.4262,-119.8404],
+  ["KMRY","Monterey Regional",36.587,-121.8429],
+  ["KAPC","Napa County",38.2132,-122.2807],
+  ["KCCR","Buchanan Field",37.9897,-122.0567],
+  ["KHAF","Half Moon Bay",37.5135,-122.5012],
+  ["KPAO","Palo Alto",37.4611,-122.115],
+  ["KRHV","Reid-Hillview",37.3329,-121.8197],
+  ["KSQL","San Carlos",37.5119,-122.2495],
+  ["KHWD","Hayward Executive",37.6593,-122.1218],
+  ["KLVK","Livermore Municipal",37.6934,-121.8197],
+  ["KSTS","Charles M Schulz-Sonoma County",38.509,-122.8128],
+  ["KSAC","Sacramento Executive",38.5125,-121.4929],
+  ["KMHR","Sacramento Mather",38.5538,-121.2978],
+  ["KSCK","Stockton Metropolitan",37.8942,-121.2386],
+  ["KMOD","Modesto City-County",37.6258,-120.9544],
+  ["KMER","Castle",37.3805,-120.5681],
+  ["KOXR","Oxnard",34.2008,-119.2071],
+  ["KVNY","Van Nuys",34.2098,-118.49],
+  ["KFUL","Fullerton Municipal",33.872,-117.9799],
+  ["KCRQ","McClellan-Palomar (Carlsbad)",33.1283,-117.2802],
+  ["KMYF","Montgomery-Gibbs Executive",32.8157,-117.1396],
+  ["KSEE","Gillespie Field",32.8262,-116.9722],
+  ["KRAL","Riverside Municipal",33.9519,-117.445],
+  ["KCNO","Chino",33.9747,-117.6371],
+  ["KPOC","Brackett Field",34.0916,-117.7817],
+  ["KEMT","San Gabriel Valley",34.086,-118.0356],
+  ["KWHP","Whiteman",34.2593,-118.4135],
+  ["KCCB","Cable",34.1116,-117.6884],
+  ["KAJO","Corona Municipal",33.8978,-117.6024],
+  ["KPSP","Palm Springs Intl",33.8297,-116.5067],
+  ["KBFL","Meadows Field (Bakersfield)",35.4336,-119.0567],
+  ["KOPF","Opa-Locka Executive",25.907,-80.2784],
+  ["KTMB","Miami Executive",25.6479,-80.4328],
+  ["KFXE","Fort Lauderdale Executive",26.1973,-80.1707],
+  ["KAPF","Naples Municipal",26.1525,-81.7752],
+  ["KBKV","Hernando County",28.4737,-82.454],
+  ["KISM","Kissimmee Gateway",28.2898,-81.4371],
+  ["KORL","Orlando Executive",28.5455,-81.3328],
+  ["KSFB","Orlando Sanford Intl",28.7776,-81.2375],
+  ["KDAB","Daytona Beach Intl",29.1799,-81.0581],
+  ["KOCF","Ocala Intl",29.1726,-82.2241],
+  ["KTLH","Tallahassee Intl",30.3965,-84.3503],
+  ["KPNS","Pensacola Intl",30.4734,-87.1866],
+  ["KECP","Northwest Florida Beaches Intl",30.3417,-85.7975],
+  ["KVPS","Destin-Fort Walton Beach",30.4832,-86.5254],
+  ["KSGJ","Northeast Florida Regional",29.9592,-81.3398],
+  ["KCRG","Jacksonville Executive",30.3363,-81.5142],
+  ["KFMH","Joint Base Cape Cod",41.6584,-70.5217],
+  ["KOWD","Norwood Memorial",42.1905,-71.1729],
+  ["KPYM","Plymouth Municipal",41.9092,-70.7287],
+  ["KFIT","Fitchburg Municipal",42.5541,-71.761],
+  ["KGON","Groton-New London",41.3301,-72.0451],
+  ["KOXC","Waterbury-Oxford",41.4787,-73.1352],
+  ["KHFD","Hartford-Brainard",41.7367,-72.6494],
+  ["KDXR","Danbury Municipal",41.3715,-73.4822],
+  ["KBDR","Igor I Sikorsky Memorial",41.1635,-73.1262],
+  ["KMMU","Morristown Municipal",40.7995,-74.415],
+  ["KCDW","Essex County",40.8752,-74.2814],
+  ["KLDJ","Linden",40.6174,-74.2446],
+  ["KFOK","Francis S Gabreski",40.8438,-72.6318],
+  ["KMTN","Martin State",39.3258,-76.4138],
+  ["KAPA","Centennial (Denver)",39.5701,-104.8488],
+  ["KBJC","Rocky Mountain Metropolitan",39.9088,-105.1172],
+  ["KFTG","Front Range",39.7853,-104.5433],
+  ["KCOS","Colorado Springs",38.8058,-104.7008],
+  ["KFNL","Northern Colorado Regional",40.4519,-105.0114],
+  ["KGJT","Grand Junction Regional",39.1224,-108.5267],
+  ["KASE","Aspen-Pitkin County",39.2232,-106.8687],
+  ["KEGE","Eagle County Regional",39.6426,-106.9177],
+  ["KJAC","Jackson Hole",43.6073,-110.7378],
+  ["KBZN","Bozeman Yellowstone Intl",45.7775,-111.1611],
+  ["KMSO","Missoula Intl",46.9163,-114.0906],
+  ["KHLN","Helena Regional",46.6068,-111.9828],
+  ["KGTF","Great Falls Intl",47.482,-111.3707],
+  ["KBIL","Billings Logan Intl",45.8077,-108.5429],
+  ["KFCA","Glacier Park Intl",48.3105,-114.2559],
+  ["KCDC","Cedar City Regional",37.701,-113.0985],
+  ["KSGU","St George Regional",37.0364,-113.5102],
+  ["KPVU","Provo Municipal",40.2192,-111.7234],
+  ["KBFI","Boeing Field (Seattle)",47.53,-122.3019],
+  ["KRNT","Renton Municipal",47.4931,-122.2157],
+  ["KPAE","Snohomish County (Paine)",47.9063,-122.2815],
+  ["KOLM","Olympia Regional",46.9694,-122.9027],
+  ["KTIW","Tacoma Narrows",47.268,-122.5783],
+  ["KHIO","Portland-Hillsboro",45.5404,-122.9498],
+  ["KTTD","Portland-Troutdale",45.5494,-122.4014],
+  ["KSLE","McNary Field (Salem)",44.9094,-123.0026],
+  ["KEUG","Eugene-Mahlon Sweet Field",44.1246,-123.212],
+  ["KMFR","Rogue Valley Intl-Medford",42.3742,-122.8735],
+  ["KRDM","Roberts Field (Redmond)",44.2541,-121.15],
+  ["KPSC","Tri-Cities (Pasco)",46.2647,-119.119],
+  ["KYKM","Yakima Air Terminal",46.5682,-120.5439],
+  ["KARR","Aurora Municipal",41.7717,-88.4757],
+  ["KLOT","Lewis University",41.6072,-88.0962],
+  ["KDPA","DuPage",41.9078,-88.2486],
+  ["KPWK","Chicago Executive",42.1142,-87.9015],
+  ["KUGN","Waukegan National",42.4222,-87.8679],
+  ["KENW","Kenosha Regional",42.5957,-87.9278],
+  ["KMSN","Dane County Regional (Madison)",43.1399,-89.3375],
+  ["KGRB","Green Bay-Austin Straubel",44.4851,-88.1296],
+  ["KAUW","Wausau Downtown",44.9261,-89.6268],
+  ["KOSH","Wittman Regional (Oshkosh)",43.9844,-88.557],
+  ["KFCM","Flying Cloud",44.8272,-93.4571],
+  ["KSTP","St Paul Downtown",44.9345,-93.06],
+  ["KMIC","Crystal",45.062,-93.354],
+  ["KFAR","Hector Intl (Fargo)",46.9207,-96.8158],
+  ["KGFK","Grand Forks Intl",47.9493,-97.1761],
+  ["KBIS","Bismarck Municipal",46.7727,-100.746],
+  ["KFSD","Joe Foss Field (Sioux Falls)",43.582,-96.7419],
+  ["KRAP","Rapid City Regional",44.0453,-103.0574],
+  ["KCHA","Chattanooga Metropolitan",35.0353,-85.2038],
+  ["KTYS","McGhee Tyson (Knoxville)",35.811,-83.9941],
+  ["KTRI","Tri-Cities Regional",36.4752,-82.4074],
+  ["KAVL","Asheville Regional",35.4362,-82.5418],
+  ["KGSO","Piedmont Triad Intl (Greensboro)",36.0978,-79.9373],
+  ["KCAE","Columbia Metropolitan",33.9389,-81.1195],
+  ["KMYR","Myrtle Beach Intl",33.6797,-78.9283],
+  ["KILM","Wilmington Intl",34.2706,-77.9026],
+  ["KSAV","Savannah/Hilton Head Intl",32.1276,-81.2021],
+  ["KAGS","Augusta Regional",33.37,-81.9645],
+  ["KMCN","Middle Georgia Regional",32.6928,-83.6492],
+  ["KCSG","Columbus Metropolitan",32.5163,-84.9388],
+  ["KVLD","Valdosta Regional",30.7825,-83.2767],
+  ["KMOB","Mobile Regional",30.6912,-88.2428],
+  ["KGPT","Gulfport-Biloxi Intl",30.4073,-89.0701],
+  ["KJAN","Jackson-Medgar Wiley Evers Intl",32.3112,-90.0759],
+  ["KHSV","Huntsville Intl",34.6372,-86.7751],
+  ["KMGM","Montgomery Regional",32.3006,-86.394],
+  ["KDHN","Dothan Regional",31.3213,-85.4496],
+  ["KFDK","Frederick Municipal",39.4176,-77.3742],
+  ["KGAI","Montgomery County Airpark",39.1683,-77.166],
+  ["KMRB","Eastern WV Regional (Martinsburg)",39.4019,-77.9846],
+  ["KCJR","Culpeper Regional",38.5267,-77.8589],
+  ["KCHO","Charlottesville-Albemarle",38.1386,-78.4529],
+  ["KROA","Roanoke-Blacksburg Regional",37.3255,-79.9754],
+  ["KLYH","Lynchburg Regional",37.3267,-79.2004],
+  ["KOSU","Ohio State University",40.0798,-83.073],
+  ["KLUK","Cincinnati Municipal",39.1031,-84.4187],
+  ["KBKL","Cleveland Burke Lakefront",41.5175,-81.6833],
+  ["KCAK","Akron-Canton Regional",40.9161,-81.4422],
+  ["KYNG","Youngstown-Warren Regional",41.2607,-80.6791],
+  ["KAGC","Allegheny County",40.3543,-79.9302],
+  ["KLBE","Arnold Palmer Regional",40.2759,-79.4048],
+  ["KVAY","South Jersey Regional",39.9428,-74.8456],
+  ["KILG","Wilmington (Delaware)",39.6787,-75.6065],
+  ["KESN","Easton/Newnam Field",38.8042,-76.0688],
+  ["KOXB","Ocean City Municipal",38.3104,-75.124]
+];
+
+// ─── Twilight Calculator ──────────────────────────────────────────────────────
+// Calculates sunrise, sunset, and civil twilight times using NOAA's algorithm.
+// Math runs in UTC; result Date objects can be compared directly with any other Date.
+
+function julianDay(date) {
+  // Returns Julian Day for the date at 00:00 UTC
+  const Y = date.getUTCFullYear();
+  const M = date.getUTCMonth() + 1;
+  const D = date.getUTCDate();
+  const a = Math.floor((14 - M) / 12);
+  const y = Y + 4800 - a;
+  const m = M + 12 * a - 3;
+  return D + Math.floor((153 * m + 2) / 5) + 365 * y +
+    Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+}
+
+// zenith: 90.833° for sunrise/sunset (refraction + sun's apparent radius)
+//         96°     for civil twilight (sun 6° below horizon)
+// rising: true for sunrise/morning twilight, false for sunset/evening twilight
+//
+// Returns a Date object in absolute UTC time. This Date can be directly
+// compared with any other Date (takeoff/landing) regardless of timezone.
+function calcSolarEvent(date, lat, lon, zenithDeg, rising) {
+  // Calculate the day-of-year (N) for the date being asked about
+  const N = julianDay(date) - julianDay(new Date(Date.UTC(date.getUTCFullYear(), 0, 1))) + 1;
+  const lonHour = lon / 15;
+  const t = rising
+    ? N + ((6 - lonHour) / 24)
+    : N + ((18 - lonHour) / 24);
+  // Sun's mean anomaly
+  const M = 0.9856 * t - 3.289;
+  // Sun's true longitude
+  let L = M + 1.916 * Math.sin(M * Math.PI / 180) +
+          0.020 * Math.sin(2 * M * Math.PI / 180) + 282.634;
+  L = ((L % 360) + 360) % 360;
+  // Sun's right ascension
+  let RA = Math.atan(0.91764 * Math.tan(L * Math.PI / 180)) * 180 / Math.PI;
+  RA = ((RA % 360) + 360) % 360;
+  // Bring RA into the same quadrant as L
+  const Lquadrant = Math.floor(L / 90) * 90;
+  const RAquadrant = Math.floor(RA / 90) * 90;
+  RA = RA + (Lquadrant - RAquadrant);
+  RA = RA / 15;
+  // Sun's declination
+  const sinDec = 0.39782 * Math.sin(L * Math.PI / 180);
+  const cosDec = Math.cos(Math.asin(sinDec));
+  // Local hour angle
+  const cosH = (Math.cos(zenithDeg * Math.PI / 180) -
+                sinDec * Math.sin(lat * Math.PI / 180)) /
+               (cosDec * Math.cos(lat * Math.PI / 180));
+  if (cosH > 1) return null; // Sun never rises (polar night)
+  if (cosH < -1) return null; // Sun never sets (midnight sun)
+  let H = rising
+    ? 360 - Math.acos(cosH) * 180 / Math.PI
+    : Math.acos(cosH) * 180 / Math.PI;
+  H = H / 15;
+  // Local mean time of the event
+  const T = H + RA - 0.06571 * t - 6.622;
+  // Convert to UTC hours
+  let UT = T - lonHour;
+
+  // Day-rollover correction:
+  // The local noon at this longitude in UTC is approximately (12 - lonHour).
+  // - Rising events (sunrise/dawn) should be ~6 hours BEFORE local noon UTC.
+  // - Setting events (sunset/dusk) should be ~6 hours AFTER local noon UTC.
+  // Adjust UT into the correct 24-hour window centered on the expected time.
+  const localNoonUT = 12 - lonHour;
+  const expectedUT = rising ? localNoonUT - 6 : localNoonUT + 6;
+  // Bring UT within ±12 hours of expectedUT
+  while (UT < expectedUT - 12) UT += 24;
+  while (UT > expectedUT + 12) UT -= 24;
+
+  // Build the Date object — UT may now exceed 24 or be negative, which is fine
+  // because Date arithmetic handles day rollover correctly.
+  const baseUtcMs = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0);
+  const eventMs = baseUtcMs + UT * 3600 * 1000;
+  return new Date(eventMs);
+}
+
+// Returns { sunrise, sunset, civilDawn, civilDusk } as Date objects.
+// Each Date represents the actual UTC moment of the event for the local
+// calendar day at (lat, lon).
+//
+// IMPORTANT: We pass in a Date that represents LOCAL midnight at the airport,
+// re-interpreted as UTC midnight for the calculation. This way, twilight events
+// land on the right calendar day even when the longitude pushes UTC into the
+// next or previous day.
+function getTwilightTimes(localDate, lat, lon) {
+  // localDate represents a calendar date in the user's local time zone.
+  // We want twilight events for THAT calendar day at (lat, lon).
+  // Build a UTC date with the same Y/M/D so the algorithm computes for that day.
+  const utcAnchor = new Date(Date.UTC(
+    localDate.getFullYear(),
+    localDate.getMonth(),
+    localDate.getDate(),
+    12, 0, 0  // anchor at noon UTC for stable day calculation
+  ));
+
+  return {
+    sunrise: calcSolarEvent(utcAnchor, lat, lon, 90.833, true),
+    sunset: calcSolarEvent(utcAnchor, lat, lon, 90.833, false),
+    civilDawn: calcSolarEvent(utcAnchor, lat, lon, 96, true),
+    civilDusk: calcSolarEvent(utcAnchor, lat, lon, 96, false),
+  };
+}
+
+// Format a Date object as "HH:MM" in local browser time
+function formatTime(d) {
+  if (!d) return "—";
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+// ─── Day/Night Calculator ─────────────────────────────────────────────────────
+
+function DayNightCalc({ onBack, initialHobbs }) {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  // Default airport: KADS (Addison) — Thrust Flight's home base
+  const DEFAULT_AIRPORT = AIRPORTS.find(a => a[0] === "KADS") || null;
+
+  const [date, setDate] = useState(todayStr);
+  const [depQuery, setDepQuery] = useState("");
+  const [destQuery, setDestQuery] = useState("");
+  const [depAirport, setDepAirport] = useState(DEFAULT_AIRPORT);
+  const [destAirport, setDestAirport] = useState(DEFAULT_AIRPORT);
+  const [engineStart, setEngineStart] = useState(""); // HH:MM
+  const [hobbsTotal, setHobbsTotal] = useState(initialHobbs || ""); // hours, e.g. "1.8"
+
+  // Taxi defaults — adjustable in settings, persisted to localStorage
+  const [taxiOutMin, setTaxiOutMin] = useState(() => ls.get("cfi_taxi_out_min", 8));
+  const [taxiInMin, setTaxiInMin] = useState(() => ls.get("cfi_taxi_in_min", 5));
+  const [showSettings, setShowSettings] = useState(false);
+
+  function saveTaxiOut(v) {
+    const n = Math.max(0, Math.min(60, parseInt(v, 10) || 0));
+    setTaxiOutMin(n); ls.set("cfi_taxi_out_min", n);
+  }
+  function saveTaxiIn(v) {
+    const n = Math.max(0, Math.min(60, parseInt(v, 10) || 0));
+    setTaxiInMin(n); ls.set("cfi_taxi_in_min", n);
+  }
+
+  // Filter airports by query
+  function filterAirports(q) {
+    if (!q || q.length < 2) return [];
+    const upper = q.toUpperCase();
+    return AIRPORTS.filter(([icao, name]) =>
+      icao.startsWith(upper) || icao.includes(upper) || name.toUpperCase().includes(upper)
+    ).slice(0, 8);
+  }
+
+  const depResults = !depAirport ? filterAirports(depQuery) : [];
+  const destResults = !destAirport ? filterAirports(destQuery) : [];
+
+  // Parse a date string + HH:MM into a Date object
+  function combineDateTime(dateStr, timeStr) {
+    if (!dateStr || !timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return null;
+    const [h, m] = timeStr.split(":").map(Number);
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const d = new Date(year, month - 1, day, h, m);
+    return d;
+  }
+
+  // Compute takeoff/landing from engine start + HOBBS + taxi times
+  // Engine start --[taxi out]--> Takeoff --[HOBBS]--> Landing --[taxi in]--> Engine stop
+  const engineStartDate = combineDateTime(date, engineStart);
+  const hobbsHours = parseFloat(hobbsTotal);
+  const hobbsValid = !isNaN(hobbsHours) && hobbsHours > 0 && hobbsHours < 24;
+
+  let takeoffDate = null, landingDate = null, adjustedLanding = null;
+  if (engineStartDate && hobbsValid) {
+    takeoffDate = new Date(engineStartDate.getTime() + taxiOutMin * 60 * 1000);
+    landingDate = new Date(takeoffDate.getTime() + hobbsHours * 60 * 60 * 1000);
+    adjustedLanding = landingDate;
+  }
+  // engine stop = landing + taxi in
+  const engineStopDate = adjustedLanding
+    ? new Date(adjustedLanding.getTime() + taxiInMin * 60 * 1000)
+    : null;
+
+  // Parse YYYY-MM-DD as a LOCAL date (not UTC midnight) — avoids day-shift bugs
+  function parseLocalDate(dateStr) {
+    if (!dateStr) return null;
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  // Get twilight times for departure and destination
+  const localDate = parseLocalDate(date);
+  const depTwilight = depAirport && localDate ? getTwilightTimes(localDate, depAirport[2], depAirport[3]) : null;
+  const destTwilight = destAirport && localDate ? getTwilightTimes(localDate, destAirport[2], destAirport[3]) : null;
+
+  // Calculate day/night split
+  // FAA 14 CFR 1.1: "Night" = period between end of evening civil twilight and beginning of
+  // morning civil twilight. So night logging starts AT civil dusk and ends AT civil dawn.
+  let dayHours = 0, nightHours = 0, totalHours = 0;
+  let nightStart = null; // when night logging begins during the flight
+  let calcReady = false;
+
+  if (takeoffDate && adjustedLanding && depTwilight && destTwilight) {
+    calcReady = true;
+    totalHours = (adjustedLanding - takeoffDate) / (1000 * 60 * 60);
+    const flightSecs = (adjustedLanding - takeoffDate) / 1000;
+
+    // For each second of the flight, determine if we're in "night" per the FAA rule.
+    // We interpolate the relevant twilight time linearly along the route based on
+    // flight progress (0 at takeoff, 1 at landing).
+    //
+    // For a same-day flight:
+    //   - Morning twilight cutoff is somewhere around dawn at the route position
+    //   - Evening twilight cutoff is somewhere around dusk at the route position
+    //
+    // A given moment is NIGHT if:
+    //   currentTime is BEFORE morning civil twilight at the current position, OR
+    //   currentTime is AFTER OR EQUAL TO evening civil twilight at the current position
+    //
+    // (We also handle next-day wrap by computing tomorrow's morning twilight if needed)
+
+    let nightSecs = 0;
+    const stepSecs = 30;
+
+    // Pre-compute the morning twilight for the *next* day at both airports, for
+    // overnight flights that cross midnight. Build the next local calendar day
+    // explicitly so the calculation lands on the right date.
+    const tomorrowLocal = new Date(localDate.getFullYear(), localDate.getMonth(), localDate.getDate() + 1);
+    const depTomorrowTwilight = getTwilightTimes(tomorrowLocal, depAirport[2], depAirport[3]);
+    const destTomorrowTwilight = getTwilightTimes(tomorrowLocal, destAirport[2], destAirport[3]);
+    const depTomorrowDawn = depTomorrowTwilight.civilDawn;
+    const destTomorrowDawn = destTomorrowTwilight.civilDawn;
+
+    for (let s = 0; s < flightSecs; s += stepSecs) {
+      const currentTime = new Date(takeoffDate.getTime() + s * 1000);
+      const progress = s / flightSecs;
+
+      // Interpolate civil dusk along the route
+      const civilDuskHere = (depTwilight.civilDusk && destTwilight.civilDusk)
+        ? new Date(depTwilight.civilDusk.getTime() * (1 - progress) + destTwilight.civilDusk.getTime() * progress)
+        : (depTwilight.civilDusk || destTwilight.civilDusk);
+
+      // Interpolate civil dawn — use today's if currentTime is in the morning,
+      // else use tomorrow's (for overnight flights past evening twilight)
+      const civilDawnTodayHere = (depTwilight.civilDawn && destTwilight.civilDawn)
+        ? new Date(depTwilight.civilDawn.getTime() * (1 - progress) + destTwilight.civilDawn.getTime() * progress)
+        : (depTwilight.civilDawn || destTwilight.civilDawn);
+      const civilDawnTomorrowHere = (depTomorrowDawn && destTomorrowDawn)
+        ? new Date(depTomorrowDawn.getTime() * (1 - progress) + destTomorrowDawn.getTime() * progress)
+        : (depTomorrowDawn || destTomorrowDawn);
+
+      // Determine if current moment is "night" per FAA rule
+      let isNight = false;
+      if (civilDawnTodayHere && currentTime < civilDawnTodayHere) {
+        // Before this morning's civil dawn — still night from the previous evening
+        isNight = true;
+      } else if (civilDuskHere && currentTime >= civilDuskHere) {
+        // After tonight's civil dusk
+        // Also check we haven't already passed tomorrow's civil dawn (sun came back up)
+        if (!civilDawnTomorrowHere || currentTime < civilDawnTomorrowHere) {
+          isNight = true;
+        }
+      }
+
+      if (isNight) {
+        nightSecs += stepSecs;
+        if (nightStart === null) nightStart = currentTime;
+      }
+    }
+    nightHours = nightSecs / 3600;
+    dayHours = totalHours - nightHours;
+    // Round to tenths
+    dayHours = Math.round(dayHours * 10) / 10;
+    nightHours = Math.round(nightHours * 10) / 10;
+    totalHours = Math.round(totalHours * 10) / 10;
+  }
+
+  function reset() {
+    setDepQuery(""); setDestQuery("");
+    setDepAirport(DEFAULT_AIRPORT); setDestAirport(DEFAULT_AIRPORT);
+    setEngineStart(""); setHobbsTotal("");
+  }
+
+  // Component starts here
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <button onClick={onBack} style={{
+              background: "transparent", border: "none",
+              color: THEME.red, fontSize: 16, fontWeight: 400,
+              cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>‹ Home</button>
+            <button onClick={() => setShowSettings(s => !s)} style={{
+              background: "transparent", border: "none",
+              color: showSettings ? THEME.red : THEME.textSecondary,
+              fontSize: 16, fontWeight: 400,
+              cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>{showSettings ? "Done" : "Settings"}</button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "8px 16px 16px" }}>
+        <div style={{ marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: THEME.red, textTransform: "uppercase", fontFamily: FONT_MONO }}>
+            Day / Night Calculator
+          </span>
+        </div>
+        <h1 style={{ margin: 0, fontSize: 34, fontWeight: 700, letterSpacing: -1, color: THEME.text, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
+          Solar Information
+        </h1>
+        <p style={{ margin: "6px 0 18px", color: THEME.textSecondary, fontSize: 15 }}>
+          Calculate day vs night logging time for a flight
+        </p>
+
+        {/* Settings panel — appears when Settings is toggled */}
+        {showSettings && (
+          <Card style={{ padding: "14px 16px", marginBottom: 14, border: `1px solid ${THEME.red}40` }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: THEME.red, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 10, fontFamily: FONT_TEXT }}>
+              Taxi Defaults
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Taxi Out (min)</div>
+                <input value={taxiOutMin}
+                  onChange={e => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                    saveTaxiOut(v);
+                  }}
+                  inputMode="numeric" pattern="[0-9]*"
+                  style={{
+                    width: "100%", boxSizing: "border-box", minWidth: 0,
+                    background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                    borderRadius: 10, padding: "10px 8px",
+                    color: THEME.text, fontSize: 15, fontFamily: FONT_MONO, letterSpacing: 0.2,
+                    outline: "none", textAlign: "center",
+                    appearance: "none", WebkitAppearance: "none",
+                  }} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Taxi In (min)</div>
+                <input value={taxiInMin}
+                  onChange={e => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+                    saveTaxiIn(v);
+                  }}
+                  inputMode="numeric" pattern="[0-9]*"
+                  style={{
+                    width: "100%", boxSizing: "border-box", minWidth: 0,
+                    background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                    borderRadius: 10, padding: "10px 8px",
+                    color: THEME.text, fontSize: 15, fontFamily: FONT_MONO, letterSpacing: 0.2,
+                    outline: "none", textAlign: "center",
+                    appearance: "none", WebkitAppearance: "none",
+                  }} />
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic", lineHeight: 1.45 }}>
+              Used to calculate takeoff and landing time from engine start + HOBBS. Saved automatically.
+            </div>
+          </Card>
+        )}
+
+        {/* Date */}
+        <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
+            Date
+          </div>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: THEME.surface2, border: `1px solid ${THEME.border}`,
+              borderRadius: 10, padding: "10px 13px",
+              color: THEME.text, fontSize: 15, fontFamily: FONT_TEXT,
+              outline: "none",
+            }} />
+        </Card>
+
+        {/* Departure airport */}
+        <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
+            Departure Airport
+          </div>
+          {depAirport ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: THEME.redDim, border: `1px solid ${THEME.red}40`, borderRadius: 10 }}>
+              <span style={{ fontFamily: FONT_MONO, fontSize: 16, fontWeight: 700, color: THEME.red, letterSpacing: 0.3 }}>{depAirport[0]}</span>
+              <span style={{ flex: 1, fontSize: 14, color: THEME.text, fontFamily: FONT_TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{depAirport[1]}</span>
+              <button onClick={() => { setDepAirport(null); setDepQuery(""); }} style={{ background: "transparent", border: "none", color: THEME.red, fontSize: 18, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+            </div>
+          ) : (
+            <>
+              <input value={depQuery} onChange={e => setDepQuery(e.target.value)}
+                placeholder="Search ICAO code or name (e.g. KADS)"
+                autoCapitalize="characters"
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                  borderRadius: 10, padding: "10px 13px",
+                  color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT,
+                  outline: "none",
+                }} />
+              {depResults.length > 0 && (
+                <div style={{ marginTop: 8, background: THEME.surface2, borderRadius: 10, border: `1px solid ${THEME.border}`, overflow: "hidden" }}>
+                  {depResults.map(ap => (
+                    <div key={ap[0]} onClick={() => { setDepAirport(ap); setDepQuery(""); }} style={{
+                      padding: "10px 13px", cursor: "pointer",
+                      borderBottom: `0.5px solid ${THEME.separator}`,
+                      display: "flex", alignItems: "center", gap: 10,
+                    }}>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: 700, color: THEME.red, minWidth: 56 }}>{ap[0]}</span>
+                      <span style={{ fontSize: 13, color: THEME.textSecondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ap[1]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {depQuery.length >= 2 && depResults.length === 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: THEME.textTertiary, fontStyle: "italic" }}>No matching airports</div>
+              )}
+            </>
+          )}
+        </Card>
+
+        {/* Destination airport */}
+        <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
+            Destination Airport
+          </div>
+          {destAirport ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: THEME.redDim, border: `1px solid ${THEME.red}40`, borderRadius: 10 }}>
+              <span style={{ fontFamily: FONT_MONO, fontSize: 16, fontWeight: 700, color: THEME.red, letterSpacing: 0.3 }}>{destAirport[0]}</span>
+              <span style={{ flex: 1, fontSize: 14, color: THEME.text, fontFamily: FONT_TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{destAirport[1]}</span>
+              <button onClick={() => { setDestAirport(null); setDestQuery(""); }} style={{ background: "transparent", border: "none", color: THEME.red, fontSize: 18, cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+            </div>
+          ) : (
+            <>
+              <input value={destQuery} onChange={e => setDestQuery(e.target.value)}
+                placeholder="Search ICAO code or name (e.g. KTRL)"
+                autoCapitalize="characters"
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                  borderRadius: 10, padding: "10px 13px",
+                  color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT,
+                  outline: "none",
+                }} />
+              {destResults.length > 0 && (
+                <div style={{ marginTop: 8, background: THEME.surface2, borderRadius: 10, border: `1px solid ${THEME.border}`, overflow: "hidden" }}>
+                  {destResults.map(ap => (
+                    <div key={ap[0]} onClick={() => { setDestAirport(ap); setDestQuery(""); }} style={{
+                      padding: "10px 13px", cursor: "pointer",
+                      borderBottom: `0.5px solid ${THEME.separator}`,
+                      display: "flex", alignItems: "center", gap: 10,
+                    }}>
+                      <span style={{ fontFamily: FONT_MONO, fontSize: 14, fontWeight: 700, color: THEME.red, minWidth: 56 }}>{ap[0]}</span>
+                      <span style={{ fontSize: 13, color: THEME.textSecondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ap[1]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {destQuery.length >= 2 && destResults.length === 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: THEME.textTertiary, fontStyle: "italic" }}>No matching airports</div>
+              )}
+            </>
+          )}
+        </Card>
+
+        {/* Engine Start + HOBBS */}
+        <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
+            Flight Times
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Engine Start</div>
+              <input type="time" value={engineStart} onChange={e => setEngineStart(e.target.value)}
+                style={{
+                  width: "100%", boxSizing: "border-box", minWidth: 0,
+                  background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                  borderRadius: 10, padding: "10px 8px",
+                  color: THEME.text, fontSize: 15, fontFamily: FONT_MONO, letterSpacing: 0.2,
+                  outline: "none", textAlign: "center",
+                  appearance: "none", WebkitAppearance: "none",
+                }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>HOBBS Total</div>
+              <input value={hobbsTotal}
+                onChange={e => {
+                  // numeric + decimal only
+                  if (e.target.value === "" || /^\d*\.?\d*$/.test(e.target.value)) setHobbsTotal(e.target.value);
+                }}
+                placeholder="1.8" inputMode="decimal"
+                style={{
+                  width: "100%", boxSizing: "border-box", minWidth: 0,
+                  background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                  borderRadius: 10, padding: "10px 8px",
+                  color: THEME.text, fontSize: 15, fontFamily: FONT_MONO, letterSpacing: 0.2,
+                  outline: "none", textAlign: "center",
+                  appearance: "none", WebkitAppearance: "none",
+                }} />
+            </div>
+          </div>
+
+          {/* Computed takeoff/landing preview + fine-print explanation */}
+          {takeoffDate && adjustedLanding && (
+            <div style={{ marginTop: 10, padding: "10px 12px", background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8 }}>
+              <div style={{ fontSize: 13, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: 0.2 }}>
+                Takeoff <span style={{ color: THEME.red, fontWeight: 600 }}>{formatTime(takeoffDate)}</span> · Landing <span style={{ color: THEME.red, fontWeight: 600 }}>{formatTime(adjustedLanding)}</span>
+                {engineStopDate && <> · Engine Stop <span style={{ color: THEME.textSecondary }}>{formatTime(engineStopDate)}</span></>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 8, fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic", lineHeight: 1.45 }}>
+            Estimates takeoff as engine start + {taxiOutMin} min taxi out, and landing as takeoff + HOBBS. Adjust taxi defaults in Settings.
+          </div>
+        </Card>
+
+        {/* Twilight info */}
+        {(depTwilight || destTwilight) && (
+          <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+            <SectionLabel style={{ padding: "0 0 10px" }}>Solar Information</SectionLabel>
+            <div style={{ fontSize: 13, color: THEME.textSecondary, lineHeight: 1.7, fontFamily: FONT_TEXT }}>
+              {depAirport && depTwilight && (
+                <div style={{ marginBottom: destAirport ? 10 : 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: THEME.red, fontFamily: FONT_MONO, letterSpacing: 0.3, marginBottom: 4 }}>{depAirport[0]} (Departure)</div>
+                  <div>Sunrise: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(depTwilight.sunrise)}</span> · Sunset: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(depTwilight.sunset)}</span></div>
+                  <div>Civil dawn: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(depTwilight.civilDawn)}</span> · Civil dusk: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(depTwilight.civilDusk)}</span></div>
+                </div>
+              )}
+              {destAirport && destTwilight && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: THEME.red, fontFamily: FONT_MONO, letterSpacing: 0.3, marginBottom: 4 }}>{destAirport[0]} (Destination)</div>
+                  <div>Sunrise: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(destTwilight.sunrise)}</span> · Sunset: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(destTwilight.sunset)}</span></div>
+                  <div>Civil dawn: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(destTwilight.civilDawn)}</span> · Civil dusk: <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{formatTime(destTwilight.civilDusk)}</span></div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Calculation result */}
+        {calcReady && (
+          <Card style={{ padding: "16px 16px 18px", marginBottom: 14, border: `1px solid ${THEME.red}60`, background: THEME.redDim }}>
+            <SectionLabel style={{ padding: "0 0 12px", color: THEME.red }}>Logging Split</SectionLabel>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Total</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{totalHours.toFixed(1)}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Day</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{dayHours.toFixed(1)}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Night</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: THEME.red, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{nightHours.toFixed(1)}</div>
+              </div>
+            </div>
+            {nightStart && nightHours > 0 && (
+              <div style={{ fontSize: 12, color: THEME.textSecondary, textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic" }}>
+                Night logging begins at {formatTime(nightStart)}
+              </div>
+            )}
+            {nightHours === 0 && (
+              <div style={{ fontSize: 12, color: THEME.textSecondary, textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic" }}>
+                Entire flight is during day — no night time
+              </div>
+            )}
+          </Card>
+        )}
+
+        {(depAirport || destAirport || engineStart || hobbsTotal) && (
+          <button onClick={reset} style={{
+            width: "100%", padding: "12px",
+            background: "transparent", border: `1px solid ${THEME.border}`,
+            borderRadius: 11, color: THEME.textSecondary,
+            fontSize: 14, fontWeight: 500, cursor: "pointer",
+            fontFamily: FONT_TEXT,
+          }}>Reset</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  // view: { type: "selector" } | { type: "notes", student } | { type: "history", student } | { type: "lesson", student, lesson }
+  // view: { type: "selector" } | { type: "notes", student } | { type: "history", student } | { type: "lesson", student, lesson } | { type: "daynight" }
   const [view, setView] = useState({ type: "selector" });
 
   useEffect(() => {
@@ -2078,7 +3025,8 @@ export default function App() {
   if (view.type === "notes") {
     return <NotesApp student={view.student}
       onBack={() => setView({ type: "selector" })}
-      onViewHistory={() => setView({ type: "history", student: view.student })} />;
+      onViewHistory={() => setView({ type: "history", student: view.student })}
+      onOpenDayNight={(hobbsTotal) => setView({ type: "daynight", returnTo: "notes", student: view.student, initialHobbs: hobbsTotal })} />;
   }
   if (view.type === "history") {
     return <PastLessonsList student={view.student}
@@ -2089,8 +3037,20 @@ export default function App() {
     return <PastLessonDetail lesson={view.lesson}
       onBack={() => setView({ type: "history", student: view.student })} />;
   }
+  if (view.type === "daynight") {
+    return <DayNightCalc
+      initialHobbs={view.initialHobbs || ""}
+      onBack={() => {
+        if (view.returnTo === "notes" && view.student) {
+          setView({ type: "notes", student: view.student });
+        } else {
+          setView({ type: "selector" });
+        }
+      }} />;
+  }
   return <StudentSelector
     onSelect={(s) => setView({ type: "notes", student: s })}
     onViewHistory={(s) => setView({ type: "history", student: s })}
+    onOpenDayNight={() => setView({ type: "daynight" })}
   />;
 }
