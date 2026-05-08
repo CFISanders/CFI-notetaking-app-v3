@@ -63,6 +63,41 @@ const ls = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
+// ─── Tools Registry ───────────────────────────────────────────────────────────
+// The 6 tools that appear on the lesson page. Order can be customized in Settings.
+// IDs are stable; display names can change.
+const TOOLS = [
+  { id: "hobbs",    name: "HOBBS & Time" },
+  { id: "solar",    name: "Solar Information" },
+  { id: "landings", name: "Landing Tracker" },
+  { id: "imc",      name: "IMC Timer" },
+  { id: "topics",   name: "Need to Cover" },
+  { id: "notes",    name: "Notes" },
+];
+const DEFAULT_TOOL_ORDER = TOOLS.map(t => t.id);
+
+function getToolOrder() {
+  const saved = ls.get("cfi_tool_order", null);
+  if (!Array.isArray(saved)) return DEFAULT_TOOL_ORDER;
+  // Reconcile: keep saved order, append any new tools added since (so updates don't lose tools)
+  const known = new Set(DEFAULT_TOOL_ORDER);
+  const validSaved = saved.filter(id => known.has(id));
+  const missing = DEFAULT_TOOL_ORDER.filter(id => !validSaved.includes(id));
+  return [...validSaved, ...missing];
+}
+function getToolVisibility() {
+  const saved = ls.get("cfi_tool_visible", null);
+  if (!saved || typeof saved !== "object") {
+    return Object.fromEntries(DEFAULT_TOOL_ORDER.map(id => [id, true]));
+  }
+  // Default any missing tool to visible
+  const result = {};
+  for (const id of DEFAULT_TOOL_ORDER) {
+    result[id] = saved[id] === false ? false : true;
+  }
+  return result;
+}
+
 // Format stage with optional Retrain (RT) suffix.
 // Accepts either a student object or stage+retrain values.
 function stageLabel(stageOrObj, retrain) {
@@ -144,7 +179,7 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(110px + env(safe-area-inset-bottom, 0px))" }}>
       {/* Branding header */}
       <div style={{ padding: "max(44px, calc(env(safe-area-inset-top, 0px) + 20px)) 24px 28px", textAlign: "center" }}>
         <div style={{
@@ -368,6 +403,41 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
             </Card>
           </>
         )}
+      </div>
+
+      {/* Credit badge — fixed at bottom of screen */}
+      <div style={{
+        position: "fixed",
+        bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
+        left: 16, right: 16,
+        zIndex: 30,
+        maxWidth: 580,
+        marginLeft: "auto", marginRight: "auto",
+        padding: "12px 16px",
+        borderRadius: 14,
+        background: "rgba(20,20,22,0.92)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        border: `1px solid ${THEME.border}`,
+        display: "flex", alignItems: "center", gap: 12,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      }}>
+        {/* Claude logo (Anthropic's mark) */}
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="#D97757" xmlns="http://www.w3.org/2000/svg" aria-label="Claude" style={{ flexShrink: 0 }}>
+          <path d="M4.709 15.955l4.72-2.647.079-.23-.079-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.448.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.146-.103.018-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76.564-.34 2.205-1.064 1.353-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/>
+        </svg>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 12, fontWeight: 600,
+            color: THEME.text, letterSpacing: -0.1,
+            fontFamily: FONT_TEXT, lineHeight: 1.3,
+          }}>Developed by Caleb Sanders</div>
+          <div style={{
+            fontSize: 11, color: THEME.textSecondary,
+            fontFamily: FONT_TEXT, marginTop: 1, letterSpacing: -0.1,
+          }}>AI Powered by Claude</div>
+        </div>
       </div>
     </div>
   );
@@ -738,9 +808,11 @@ const APPROACH_CONFIG = {
 };
 const APPROACH_TYPES = Object.keys(APPROACH_CONFIG);
 
-function ApproachBuilder({ onInsert }) {
+function ApproachBuilder({ onInsert, editMode }) {
   const airportKey = "cfi_airports_used";
+  const runwaysKey = "cfi_airport_runways"; // map of { ICAO: ["16","34",...] }
   const [airports, setAirports] = useState(() => ls.get(airportKey, []));
+  const [airportRunways, setAirportRunways] = useState(() => ls.get(runwaysKey, {}));
   const [airport, setAirport] = useState("");
   const [runway, setRunway] = useState("");
   const [approachType, setApproachType] = useState("");
@@ -751,6 +823,10 @@ function ApproachBuilder({ onInsert }) {
   function selectAirport(code) {
     setAirport(code);
   }
+
+  // Suggested runways for the currently-typed/selected airport (if known)
+  const currentCode = airport.trim().toUpperCase();
+  const suggestedRunways = currentCode ? (airportRunways[currentCode] || []) : [];
 
   function selectApproachType(type) {
     setApproachType(type);
@@ -781,6 +857,21 @@ function ApproachBuilder({ onInsert }) {
     } else {
       const next = [code, ...airports.filter(a => a !== code)].slice(0, 12);
       setAirports(next); ls.set(airportKey, next);
+    }
+    // Remember this runway for the airport (and the circle-to runway if used)
+    const existingRwys = airportRunways[code] || [];
+    const rwysToAdd = [rw];
+    if (isCircling && supportsCircling && circleRw) rwysToAdd.push(circleRw);
+    let nextRwys = [...existingRwys];
+    for (const r of rwysToAdd) {
+      if (!nextRwys.includes(r)) nextRwys.push(r);
+    }
+    // Sort numerically (01, 02, ..., 36) for tidy display
+    nextRwys = nextRwys.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    if (nextRwys.length !== existingRwys.length || nextRwys.some((r, i) => r !== existingRwys[i])) {
+      const nextMap = { ...airportRunways, [code]: nextRwys };
+      setAirportRunways(nextMap);
+      ls.set(runwaysKey, nextMap);
     }
     // Build the formatted note
     let formatted;
@@ -834,16 +925,18 @@ function ApproachBuilder({ onInsert }) {
                   background: "transparent", border: "none",
                   color: airport === code ? "#fff" : THEME.textSecondary,
                   fontSize: 13, fontWeight: 600,
-                  padding: "5px 10px 5px 12px",
+                  padding: editMode ? "5px 10px 5px 12px" : "5px 12px",
                   cursor: "pointer", fontFamily: FONT_MONO,
                   letterSpacing: 0.3,
                 }}>{code}</button>
-                <button onClick={(e) => removeAirport(code, e)} title="Remove from history" style={{
-                  background: "transparent", border: "none",
-                  color: airport === code ? "rgba(255,255,255,0.7)" : THEME.textTertiary,
-                  fontSize: 14, lineHeight: 1, padding: "5px 9px 5px 4px",
-                  cursor: "pointer",
-                }}>×</button>
+                {editMode && (
+                  <button onClick={(e) => removeAirport(code, e)} title="Remove from history" style={{
+                    background: "transparent", border: "none",
+                    color: airport === code ? "rgba(255,255,255,0.7)" : THEME.textTertiary,
+                    fontSize: 14, lineHeight: 1, padding: "5px 9px 5px 4px",
+                    cursor: "pointer",
+                  }}>×</button>
+                )}
               </div>
             ))}
           </div>
@@ -865,6 +958,22 @@ function ApproachBuilder({ onInsert }) {
         <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
           Runway
         </div>
+        {/* Suggested runways for the selected/typed airport */}
+        {suggestedRunways.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {suggestedRunways.map(rw => (
+              <button key={rw} onClick={() => setRunway(rw)} style={{
+                background: runway === rw ? THEME.red : THEME.surface2,
+                border: `1px solid ${runway === rw ? THEME.red : THEME.border}`,
+                color: runway === rw ? "#fff" : THEME.textSecondary,
+                fontSize: 13, fontWeight: 600,
+                padding: "4px 11px", borderRadius: 100,
+                cursor: "pointer", fontFamily: FONT_MONO,
+                letterSpacing: 0.3,
+              }}>{rw}</button>
+            ))}
+          </div>
+        )}
         <input value={runway}
           onChange={e => {
             // Strip all non-digits, max 2 chars (runways are 01-36)
@@ -948,6 +1057,22 @@ function ApproachBuilder({ onInsert }) {
               <div style={{ fontSize: 11, fontWeight: 600, color: THEME.textSecondary, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 7, fontFamily: FONT_TEXT }}>
                 Circle to Runway
               </div>
+              {/* Suggested runways for circling — exclude the one already chosen as the approach runway */}
+              {suggestedRunways.filter(r => r !== runway).length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  {suggestedRunways.filter(r => r !== runway).map(rw => (
+                    <button key={rw} onClick={() => setCircleRunway(rw)} style={{
+                      background: circleRunway === rw ? THEME.red : THEME.surface2,
+                      border: `1px solid ${circleRunway === rw ? THEME.red : THEME.border}`,
+                      color: circleRunway === rw ? "#fff" : THEME.textSecondary,
+                      fontSize: 13, fontWeight: 600,
+                      padding: "4px 11px", borderRadius: 100,
+                      cursor: "pointer", fontFamily: FONT_MONO,
+                      letterSpacing: 0.3,
+                    }}>{rw}</button>
+                  ))}
+                </div>
+              )}
               <input value={circleRunway}
                 onChange={e => {
                   const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
@@ -1031,6 +1156,8 @@ function NotesSection({ trainingType, notes, setNotes }) {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [activeSubInputIdx, setActiveSubInputIdx] = useState(null); // which note is showing sub-bullet input
   const [subInputText, setSubInputText] = useState("");
+  // Reorder mode — drag-and-drop is locked unless this is true
+  const [reorderMode, setReorderMode] = useState(false);
   // Long-press drag state for reordering notes
   const [draggingIdx, setDraggingIdx] = useState(null); // index of the note being dragged
   const [dropTargetIdx, setDropTargetIdx] = useState(null); // where it would be dropped
@@ -1259,6 +1386,14 @@ function NotesSection({ trainingType, notes, setNotes }) {
           )}
         </div>
         <div style={{ display: "flex", gap: 14 }}>
+          {!open && notes.length >= 2 && (
+            <button onClick={() => setReorderMode(m => !m)} style={{
+              background: "transparent", border: "none",
+              color: reorderMode ? THEME.red : THEME.textSecondary,
+              fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "4px 0",
+              fontFamily: FONT_TEXT,
+            }}>{reorderMode ? "Done" : "Reorder"}</button>
+          )}
           {open && (
             <button onClick={() => setEditMode(m => !m)} style={{
               background: "transparent", border: "none",
@@ -1267,7 +1402,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
               fontFamily: FONT_TEXT,
             }}>{editMode ? "Done" : "Edit"}</button>
           )}
-          <button onClick={() => { setOpen(o => !o); if (open) setEditMode(false); }} style={{
+          <button onClick={() => { setOpen(o => !o); if (open) setEditMode(false); setReorderMode(false); }} style={{
             background: "transparent", border: "none",
             color: THEME.red, fontSize: 15, fontWeight: 500,
             cursor: "pointer", fontFamily: FONT_TEXT, padding: "4px 0",
@@ -1380,7 +1515,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
 
           {/* Approach builder (replaces snippet list when on Approach tab) */}
           {isApproachTab ? (
-            <ApproachBuilder onInsert={(text) => addNote(text, true)} />
+            <ApproachBuilder onInsert={(text) => addNote(text, true)} editMode={editMode} />
           ) : (
           <div style={{ padding: "0 16px 14px" }}>
             {activeList.length === 0 && (
@@ -1510,11 +1645,14 @@ function NotesSection({ trainingType, notes, setNotes }) {
           <div key={i}
             ref={el => { noteRefsRef.current[i] = el; }}
             onTouchStart={(e) => {
+              // Drag/reorder is locked unless user has tapped Reorder
+              if (!reorderMode) return;
               // Don't start drag if user touched a button or input
               if (e.target.closest("button, input, textarea")) return;
               startLongPress(i, e.touches[0].clientY, e);
             }}
             onMouseDown={(e) => {
+              if (!reorderMode) return;
               if (e.target.closest("button, input, textarea")) return;
               startLongPress(i, e.clientY, e);
             }}
@@ -1544,9 +1682,17 @@ function NotesSection({ trainingType, notes, setNotes }) {
               touchAction: isAnyDragging ? "none" : "auto",
               userSelect: isAnyDragging ? "none" : "auto",
               WebkitUserSelect: isAnyDragging ? "none" : "auto",
-              cursor: isDragging ? "grabbing" : "default",
+              cursor: isDragging ? "grabbing" : reorderMode ? "grab" : "default",
             }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              {reorderMode && (
+                <span style={{
+                  color: THEME.textSecondary,
+                  fontSize: 16, lineHeight: "20px",
+                  flexShrink: 0, marginTop: 1,
+                  userSelect: "none", WebkitUserSelect: "none",
+                }}>☰</span>
+              )}
               <span style={{
                 color: THEME.red,
                 fontSize: isApproach ? 18 : 14,
@@ -1570,11 +1716,6 @@ function NotesSection({ trainingType, notes, setNotes }) {
                   padding: "3px 8px", flexShrink: 0, fontFamily: FONT_TEXT,
                   transition: "all 0.15s",
                 }}>{isAddingSub ? "Done" : "+ Sub"}</button>
-              <button onClick={() => toggleFav(text)} style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 15, padding: "2px 2px", flexShrink: 0,
-                opacity: favorites.includes(text) ? 1 : 0.25, transition: "opacity 0.15s", lineHeight: 1,
-              }}>⭐</button>
               <button onClick={() => removeNote(i)} style={{
                 background: "transparent", border: "none", color: THEME.textQuaternary,
                 cursor: "pointer", fontSize: 20, padding: "0 2px", flexShrink: 0, lineHeight: 1,
@@ -1626,14 +1767,585 @@ function NotesSection({ trainingType, notes, setNotes }) {
   );
 }
 
+// ─── IMC Timer ────────────────────────────────────────────────────────────────
+// Live timer for actual instrument time in clouds. Tap Start when entering IMC,
+// optionally enter entry altitude (MSL); tap Stop when exiting, optionally enter
+// exit altitude. Total time accumulates across multiple cloud entries.
+
+function IMCTimer({ imc, setImc }) {
+  // Force re-render every second when timer is running so the live clock updates
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (imc.startTs == null) return;
+    const id = setInterval(() => forceTick(x => x + 1), 1000);
+    return () => clearInterval(id);
+  }, [imc.startTs]);
+
+  const isRunning = imc.startTs != null;
+  // Live elapsed seconds (only relevant when running)
+  const liveSeconds = isRunning ? Math.floor((Date.now() - imc.startTs) / 1000) : 0;
+  // Total displayed = accumulated + (live elapsed if running)
+  const totalDisplaySecs = (imc.totalSeconds || 0) + liveSeconds;
+  const totalHoursDecimal = totalDisplaySecs / 3600;
+
+  function fmtClock(secs) {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+
+  function start() {
+    if (navigator.vibrate) navigator.vibrate(15);
+    setImc({ ...imc, startTs: Date.now() });
+  }
+
+  function stop() {
+    if (navigator.vibrate) navigator.vibrate(15);
+    const elapsed = imc.startTs ? Math.floor((Date.now() - imc.startTs) / 1000) : 0;
+    setImc({ ...imc, startTs: null, totalSeconds: (imc.totalSeconds || 0) + elapsed });
+  }
+
+  function clearTimer() {
+    if (!window.confirm("Clear IMC timer?\n\nThis will erase the total time and altitudes. This cannot be undone.")) return;
+    setImc({ startTs: null, entryAlt: "", exitAlt: "", totalSeconds: 0 });
+  }
+
+  function setAlt(field, val) {
+    if (val === "" || /^\d{0,5}$/.test(val)) {
+      setImc({ ...imc, [field]: val });
+    }
+  }
+
+  const hasContent = isRunning || (imc.totalSeconds || 0) > 0 || imc.entryAlt || imc.exitAlt;
+
+  // Collapsed by default. Auto-expands while running so you can see/control the live timer.
+  // After stopping, stays expanded so user can grab the total or enter altitudes.
+  const [expanded, setExpanded] = useState(false);
+  // Force expansion whenever the timer is running
+  const isExpanded = expanded || isRunning;
+
+  return (
+    <Card style={{ padding: "10px 14px", marginBottom: 16 }}>
+      {/* Slim header row — always visible, taps to toggle expansion */}
+      <div onClick={() => setExpanded(e => !e)} style={{
+        display: "flex", alignItems: "center", gap: 10,
+        cursor: "pointer", userSelect: "none", WebkitUserSelect: "none",
+        padding: "2px 0",
+      }}>
+        <span style={{ fontSize: 15, lineHeight: 1 }}>☁️</span>
+        <SectionLabel style={{ padding: 0 }}>IMC Timer</SectionLabel>
+
+        {/* Inline status — shows the relevant state at a glance even when collapsed */}
+        <div style={{
+          flex: 1, display: "flex", alignItems: "center", gap: 8,
+          fontSize: 12, color: THEME.textSecondary, fontFamily: FONT_TEXT,
+          justifyContent: "flex-end",
+        }}>
+          {isRunning && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: THEME.red,
+              fontFamily: FONT_MONO, letterSpacing: 0.4,
+              background: `${THEME.red}1a`, border: `0.5px solid ${THEME.red}50`,
+              padding: "2px 6px", borderRadius: 4,
+            }}>● LIVE</span>
+          )}
+          {(totalDisplaySecs > 0 || isRunning) && (
+            <span style={{ fontFamily: FONT_MONO, color: isRunning ? THEME.red : THEME.text, fontWeight: 600, letterSpacing: 0.3 }}>
+              {fmtClock(totalDisplaySecs)}
+            </span>
+          )}
+        </div>
+
+        <span style={{
+          color: THEME.textTertiary, fontSize: 13,
+          transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+          transition: "transform 0.18s",
+        }}>›</span>
+      </div>
+
+      {/* Expanded body — only renders when expanded or running */}
+      {isExpanded && (
+        <div style={{ marginTop: 10 }}>
+          {/* Live clock display */}
+          <div style={{
+            textAlign: "center", padding: "10px 8px", marginBottom: 10,
+            background: isRunning ? `${THEME.red}15` : THEME.surface2,
+            border: `1px solid ${isRunning ? `${THEME.red}50` : THEME.border}`,
+            borderRadius: 10,
+          }}>
+            <div style={{
+              fontSize: 26, fontWeight: 700, color: isRunning ? THEME.red : THEME.text,
+              fontFamily: FONT_MONO, letterSpacing: 0.5, lineHeight: 1,
+              textShadow: isRunning ? `0 0 12px ${THEME.red}40` : "none",
+            }}>{fmtClock(totalDisplaySecs)}</div>
+            <div style={{
+              fontSize: 11, color: THEME.textSecondary, marginTop: 4,
+              fontFamily: FONT_TEXT, letterSpacing: 0.2,
+            }}>
+              {isRunning ? (
+                <span><span style={{ color: THEME.red, fontWeight: 600 }}>● IN CLOUDS</span> · Total Actual: <span style={{ color: THEME.text, fontFamily: FONT_MONO, fontWeight: 600 }}>{totalHoursDecimal.toFixed(1)} hrs</span></span>
+              ) : (totalDisplaySecs > 0 ? (
+                <span>Total Actual: <span style={{ color: THEME.text, fontFamily: FONT_MONO, fontWeight: 600 }}>{totalHoursDecimal.toFixed(1)} hrs</span></span>
+              ) : (
+                <span>Tap Start when entering IMC</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Start/Stop button */}
+          <button onClick={isRunning ? stop : start} style={{
+            width: "100%", padding: "11px",
+            borderRadius: 11,
+            background: isRunning ? THEME.red : THEME.surface2,
+            border: isRunning ? "none" : `1px solid ${THEME.border}`,
+            color: isRunning ? "#fff" : THEME.text,
+            fontSize: 14, fontWeight: 600, cursor: "pointer",
+            fontFamily: FONT_TEXT, letterSpacing: -0.2,
+            boxShadow: isRunning ? `0 2px 12px ${THEME.redGlow}` : "none",
+            transition: "transform 0.1s, background 0.15s",
+          }}
+          onTouchStart={e => e.currentTarget.style.transform = "scale(0.97)"}
+          onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}>
+            {isRunning ? "■ Stop (Exiting Clouds)" : (totalDisplaySecs > 0 ? "▶ Resume (Entering Clouds)" : "▶ Start (Entering Clouds)")}
+          </button>
+
+          {/* Optional altitudes */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Entry Alt (MSL)</div>
+              <input value={imc.entryAlt || ""}
+                onChange={e => setAlt("entryAlt", e.target.value)}
+                placeholder="—" inputMode="numeric"
+                style={{
+                  width: "100%", boxSizing: "border-box", minWidth: 0,
+                  background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                  borderRadius: 8, padding: "7px 8px",
+                  color: THEME.text, fontSize: 14, fontFamily: FONT_MONO,
+                  outline: "none", textAlign: "center",
+                  appearance: "none", WebkitAppearance: "none",
+                }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Exit Alt (MSL)</div>
+              <input value={imc.exitAlt || ""}
+                onChange={e => setAlt("exitAlt", e.target.value)}
+                placeholder="—" inputMode="numeric"
+                style={{
+                  width: "100%", boxSizing: "border-box", minWidth: 0,
+                  background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                  borderRadius: 8, padding: "7px 8px",
+                  color: THEME.text, fontSize: 14, fontFamily: FONT_MONO,
+                  outline: "none", textAlign: "center",
+                  appearance: "none", WebkitAppearance: "none",
+                }} />
+            </div>
+          </div>
+
+          {/* Clear button — only when there's something to clear */}
+          {hasContent && !isRunning && (
+            <button onClick={clearTimer} style={{
+              width: "100%", padding: "9px", marginTop: 10,
+              background: "transparent", border: `0.5px solid ${THEME.border}`,
+              borderRadius: 9, color: THEME.textSecondary,
+              fontSize: 12, fontWeight: 500, cursor: "pointer",
+              fontFamily: FONT_TEXT,
+            }}>Clear Timer</button>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Landing Tracker ──────────────────────────────────────────────────────────
+// Logs touch-and-go and full-stop landings during a flight. Each tap timestamps
+// the landing and auto-determines if it counts as a NIGHT landing for currency
+// per 14 CFR 61.57(b)(1): night = 1 hour after sunset to 1 hour before sunrise.
+
+function LandingTracker({ landings, setLandings, landingAirport, setLandingAirport }) {
+  const [airportQuery, setAirportQuery] = useState("");
+  const [showLog, setShowLog] = useState(false);
+
+  // Filter airports by query
+  function filterAirports(q) {
+    if (!q || q.length < 2) return [];
+    const upper = q.toUpperCase();
+    return AIRPORTS.filter(([icao, name]) =>
+      icao.startsWith(upper) || icao.includes(upper) || name.toUpperCase().includes(upper)
+    ).slice(0, 6);
+  }
+  const apResults = !landingAirport ? filterAirports(airportQuery) : [];
+
+  // Determine if a given timestamp is "night" per 61.57(b)(1):
+  // 1 hour after sunset to 1 hour before sunrise at the airport's location.
+  function isNightLandingPerCurrency(timestamp, airport) {
+    if (!airport) return null; // can't determine without airport
+    const lat = airport[2];
+    const lon = airport[3];
+    const ts = new Date(timestamp);
+    // Use the local-date version of the timestamp (the actual calendar day at the airport)
+    const localDate = new Date(ts.getFullYear(), ts.getMonth(), ts.getDate());
+    const tw = getTwilightTimes(localDate, lat, lon);
+    if (!tw.sunrise || !tw.sunset) return null;
+    // Night currency starts 1 hour after sunset
+    const nightStart = new Date(tw.sunset.getTime() + 60 * 60 * 1000);
+    // Night currency ends 1 hour before sunrise
+    const nightEnd = new Date(tw.sunrise.getTime() - 60 * 60 * 1000);
+    // It's night if currentTime is after nightStart OR before nightEnd
+    if (ts >= nightStart) return true;
+    if (ts < nightEnd) return true;
+    return false;
+  }
+
+  function logLanding(type) {
+    const now = Date.now();
+    const isNight = landingAirport ? isNightLandingPerCurrency(now, landingAirport) : null;
+    const newLanding = {
+      id: now.toString(),
+      type, // "touchgo" or "fullstop"
+      timestamp: now,
+      isNight,
+      airport: landingAirport ? landingAirport[0] : null,
+    };
+    setLandings([...landings, newLanding]);
+    // Haptic feedback if available
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+
+  function removeLanding(id) {
+    setLandings(landings.filter(l => l.id !== id));
+  }
+
+  // Counter totals
+  const tgCount = landings.filter(l => l.type === "touchgo").length;
+  const fsCount = landings.filter(l => l.type === "fullstop").length;
+  const nightCount = landings.filter(l => l.isNight === true).length;
+  const dayCount = landings.filter(l => l.isNight === false).length;
+
+  function formatLandingTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+
+  return (
+    <Card style={{ padding: "12px 14px", marginBottom: 16 }}>
+      <div style={{ marginBottom: 10 }}>
+        <SectionLabel style={{ padding: 0 }}>Landing Tracker</SectionLabel>
+      </div>
+
+      {/* Airport selector */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>
+          Airport
+        </div>
+        {landingAirport ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: THEME.redDim, border: `1px solid ${THEME.red}40`, borderRadius: 8 }}>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 13, fontWeight: 700, color: THEME.red, letterSpacing: 0.3 }}>{landingAirport[0]}</span>
+            <span style={{ flex: 1, fontSize: 12, color: THEME.text, fontFamily: FONT_TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{landingAirport[1]}</span>
+            <button onClick={() => { setLandingAirport(null); setAirportQuery(""); }} style={{
+              background: "transparent", border: "none", color: THEME.red,
+              fontSize: 14, cursor: "pointer", padding: 0, lineHeight: 1,
+            }}>×</button>
+          </div>
+        ) : (
+          <>
+            <input value={airportQuery} onChange={e => setAirportQuery(e.target.value)}
+              placeholder="ICAO or name (e.g. KADS)"
+              autoCapitalize="characters"
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                borderRadius: 8, padding: "7px 10px",
+                color: THEME.text, fontSize: 13, fontFamily: FONT_TEXT,
+                outline: "none",
+              }} />
+            {apResults.length > 0 && (
+              <div style={{ marginTop: 5, background: THEME.surface2, borderRadius: 8, border: `1px solid ${THEME.border}`, overflow: "hidden" }}>
+                {apResults.map(ap => (
+                  <div key={ap[0]} onClick={() => { setLandingAirport(ap); setAirportQuery(""); }} style={{
+                    padding: "7px 10px", cursor: "pointer",
+                    borderBottom: `0.5px solid ${THEME.separator}`,
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 12, fontWeight: 700, color: THEME.red, minWidth: 48 }}>{ap[0]}</span>
+                    <span style={{ fontSize: 11, color: THEME.textSecondary, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ap[1]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ marginTop: 5, fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic" }}>
+              Pick an airport to determine night vs day landings.
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Two tap buttons */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: landings.length > 0 ? 10 : 0 }}>
+        <button onClick={() => logLanding("touchgo")} style={{
+          padding: "11px 10px", borderRadius: 10,
+          background: THEME.surface2, border: `1px solid ${THEME.border}`,
+          color: THEME.text, fontSize: 14, fontWeight: 600,
+          cursor: "pointer", fontFamily: FONT_TEXT,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+          transition: "transform 0.1s, background 0.15s",
+        }}
+        onTouchStart={e => e.currentTarget.style.transform = "scale(0.97)"}
+        onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}>
+          <span>Touch & Go</span>
+          {tgCount > 0 && <span style={{ fontSize: 11, color: THEME.textSecondary, fontFamily: FONT_MONO }}>{tgCount}</span>}
+        </button>
+        <button onClick={() => logLanding("fullstop")} style={{
+          padding: "11px 10px", borderRadius: 10,
+          background: THEME.surface2, border: `1px solid ${THEME.border}`,
+          color: THEME.text, fontSize: 14, fontWeight: 600,
+          cursor: "pointer", fontFamily: FONT_TEXT,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+          transition: "transform 0.1s, background 0.15s",
+        }}
+        onTouchStart={e => e.currentTarget.style.transform = "scale(0.97)"}
+        onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}>
+          <span>Full Stop</span>
+          {fsCount > 0 && <span style={{ fontSize: 11, color: THEME.textSecondary, fontFamily: FONT_MONO }}>{fsCount}</span>}
+        </button>
+      </div>
+
+      {/* Summary + log toggle */}
+      {landings.length > 0 && (
+        <>
+          <button onClick={() => setShowLog(s => !s)} style={{
+            width: "100%", padding: "9px 12px",
+            background: "transparent", border: `0.5px solid ${THEME.border}`,
+            borderRadius: 9, color: THEME.textSecondary,
+            fontSize: 12, fontWeight: 500, cursor: "pointer",
+            fontFamily: FONT_TEXT,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span><span style={{ color: THEME.text, fontWeight: 600, fontFamily: FONT_MONO }}>{landings.length}</span> total</span>
+              {dayCount > 0 && <span style={{ color: THEME.textTertiary }}>· <span style={{ color: THEME.text, fontFamily: FONT_MONO }}>{dayCount}</span> day</span>}
+              {nightCount > 0 && <span style={{ color: THEME.textTertiary }}>· <span style={{ color: THEME.red, fontFamily: FONT_MONO, fontWeight: 600 }}>{nightCount}</span> night</span>}
+            </span>
+            <span style={{ color: THEME.textTertiary, fontSize: 14 }}>{showLog ? "▾" : "▸"}</span>
+          </button>
+
+          {/* Expandable log of individual landings */}
+          {showLog && (
+            <div style={{ marginTop: 8, background: THEME.surface2, borderRadius: 9, border: `0.5px solid ${THEME.border}`, overflow: "hidden" }}>
+              {[...landings].reverse().map((l, idx) => (
+                <div key={l.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 12px",
+                  borderBottom: idx < landings.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                }}>
+                  <span style={{
+                    fontFamily: FONT_MONO, fontSize: 12, color: THEME.textSecondary,
+                    minWidth: 42,
+                  }}>{formatLandingTime(l.timestamp)}</span>
+                  <span style={{
+                    fontSize: 12, color: THEME.text, fontFamily: FONT_TEXT,
+                    flex: 1,
+                  }}>{l.type === "touchgo" ? "Touch & Go" : "Full Stop"}</span>
+                  {l.isNight === true && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      color: THEME.red, fontFamily: FONT_MONO,
+                      background: THEME.redDim, border: `0.5px solid ${THEME.red}40`,
+                      padding: "2px 6px", borderRadius: 4, letterSpacing: 0.3,
+                    }}>NIGHT</span>
+                  )}
+                  {l.isNight === false && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      color: THEME.textSecondary, fontFamily: FONT_MONO,
+                      background: "transparent", border: `0.5px solid ${THEME.border}`,
+                      padding: "2px 6px", borderRadius: 4, letterSpacing: 0.3,
+                    }}>DAY</span>
+                  )}
+                  {l.isNight === null && (
+                    <span style={{
+                      fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_MONO,
+                    }}>—</span>
+                  )}
+                  <button onClick={() => removeLanding(l.id)} style={{
+                    background: "transparent", border: "none",
+                    color: THEME.textQuaternary, fontSize: 16,
+                    cursor: "pointer", padding: "0 2px", lineHeight: 1,
+                  }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: 8, fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic", lineHeight: 1.45 }}>
+            Per <span style={{ fontFamily: FONT_MONO, fontSize: 10 }}>14 CFR 61.57(b)(1)</span>, night for landing currency = 1 hour after sunset to 1 hour before sunrise.
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── Lesson Settings ──────────────────────────────────────────────────────────
+// Lets the user reorder and toggle visibility of the 6 tools on the lesson page.
+// Preferences saved globally to localStorage and apply to all students.
+
+function LessonSettings({ onBack }) {
+  const [order, setOrder] = useState(() => getToolOrder());
+  const [visible, setVisible] = useState(() => getToolVisibility());
+
+  const toolName = (id) => (TOOLS.find(t => t.id === id) || {}).name || id;
+
+  function moveTool(idx, direction) {
+    const newOrder = [...order];
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= newOrder.length) return;
+    [newOrder[idx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[idx]];
+    setOrder(newOrder);
+    ls.set("cfi_tool_order", newOrder);
+  }
+
+  function toggleVisibility(id) {
+    const next = { ...visible, [id]: !visible[id] };
+    setVisible(next);
+    ls.set("cfi_tool_visible", next);
+  }
+
+  function resetAll() {
+    if (!window.confirm("Reset tool order and visibility to defaults?\n\nAll 6 tools will be visible in the original order.")) return;
+    const defaultOrder = DEFAULT_TOOL_ORDER;
+    const defaultVisible = Object.fromEntries(defaultOrder.map(id => [id, true]));
+    setOrder(defaultOrder);
+    setVisible(defaultVisible);
+    ls.set("cfi_tool_order", defaultOrder);
+    ls.set("cfi_tool_visible", defaultVisible);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))" }}>
+      {/* Sticky header */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <button onClick={onBack} style={{
+            background: "transparent", border: "none",
+            color: THEME.red, fontSize: 16, fontWeight: 500,
+            cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+          }}>‹ Lesson</button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "8px 16px 16px" }}>
+        <div style={{ marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: THEME.red, textTransform: "uppercase", fontFamily: FONT_MONO }}>
+            Settings
+          </span>
+        </div>
+        <h1 style={{ margin: 0, fontSize: 34, fontWeight: 700, letterSpacing: -1, color: THEME.text, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
+          Lesson Tools
+        </h1>
+        <p style={{ margin: "6px 0 18px", color: THEME.textSecondary, fontSize: 15, lineHeight: 1.4 }}>
+          Customize the order and visibility of tools on the lesson page. Changes apply to all students.
+        </p>
+
+        <Card style={{ padding: "8px 0", marginBottom: 14 }}>
+          {order.map((id, idx) => {
+            const isVisible = visible[id] !== false;
+            return (
+              <div key={id} style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "12px 14px",
+                borderBottom: idx < order.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                opacity: isVisible ? 1 : 0.5,
+              }}>
+                <span style={{
+                  fontSize: 15, color: THEME.text,
+                  fontFamily: FONT_TEXT, fontWeight: 500,
+                  flex: 1, letterSpacing: -0.2,
+                }}>{toolName(id)}</span>
+
+                {/* Visibility toggle (iOS-style) */}
+                <button onClick={() => toggleVisibility(id)} aria-label={`Toggle ${toolName(id)}`} style={{
+                  background: isVisible ? THEME.green : THEME.surface2,
+                  border: `1px solid ${isVisible ? THEME.green : THEME.border}`,
+                  borderRadius: 100,
+                  width: 44, height: 26,
+                  cursor: "pointer", padding: 0,
+                  position: "relative",
+                  transition: "background 0.2s, border-color 0.2s",
+                  flexShrink: 0,
+                }}>
+                  <span style={{
+                    position: "absolute",
+                    top: 2, left: isVisible ? 20 : 2,
+                    width: 20, height: 20,
+                    background: "#fff", borderRadius: "50%",
+                    transition: "left 0.2s",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }} />
+                </button>
+
+                {/* Reorder up/down */}
+                <button onClick={() => moveTool(idx, -1)} disabled={idx === 0} aria-label="Move up" style={{
+                  background: idx === 0 ? "transparent" : THEME.surface2,
+                  border: `1px solid ${THEME.border}`, borderRadius: 7,
+                  color: idx === 0 ? THEME.textQuaternary : THEME.text,
+                  fontSize: 12, fontWeight: 700,
+                  cursor: idx === 0 ? "default" : "pointer",
+                  padding: "5px 9px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
+                  fontFamily: FONT_MONO, flexShrink: 0,
+                }}>▲</button>
+                <button onClick={() => moveTool(idx, 1)} disabled={idx === order.length - 1} aria-label="Move down" style={{
+                  background: idx === order.length - 1 ? "transparent" : THEME.surface2,
+                  border: `1px solid ${THEME.border}`, borderRadius: 7,
+                  color: idx === order.length - 1 ? THEME.textQuaternary : THEME.text,
+                  fontSize: 12, fontWeight: 700,
+                  cursor: idx === order.length - 1 ? "default" : "pointer",
+                  padding: "5px 9px", lineHeight: 1, opacity: idx === order.length - 1 ? 0.4 : 1,
+                  fontFamily: FONT_MONO, flexShrink: 0,
+                }}>▼</button>
+              </div>
+            );
+          })}
+        </Card>
+
+        <div style={{ fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic", lineHeight: 1.5, marginBottom: 16, textAlign: "center" }}>
+          Tap the toggle to hide a tool · Use ▲▼ to reorder
+        </div>
+
+        <button onClick={resetAll} style={{
+          width: "100%", padding: "12px",
+          background: "transparent", border: `1px solid ${THEME.border}`,
+          borderRadius: 11, color: THEME.textSecondary,
+          fontSize: 14, fontWeight: 500, cursor: "pointer",
+          fontFamily: FONT_TEXT,
+        }}>Reset to Default</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Notes App ───────────────────────────────────────────────────────────
 
-function NotesApp({ student, onBack, onViewHistory, onOpenDayNight }) {
-  const [hobbs, setHobbs] = useState({ out: "", in_: "", total: "", calculatedField: null });
-  const [topics, setTopics] = useState([]);
-  const [checkedTopics, setCheckedTopics] = useState({});
-  const [notes, setNotes] = useState([]);
+function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettings,
+  hobbs, setHobbs, topics, setTopics, checkedTopics, setCheckedTopics, notes, setNotes,
+  loggingSplit, clearLoggingSplit,
+  landings, setLandings, landingAirport, setLandingAirport,
+  imc, setImc,
+  isEditing, onExitEditMode, onLessonCleared }) {
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Tool ordering and visibility — read from localStorage at render time so changes
+  // made on the Settings page reflect when the user returns.
+  const toolOrder = getToolOrder();
+  const toolVisibility = getToolVisibility();
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
   // Build text for clipboard — notes ONLY (clean, focused)
@@ -1693,6 +2405,32 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight }) {
     return lines.join("\n");
   }
 
+  function saveLesson() {
+    // Archive captures the FULL lesson — student info, HOBBS, topics, notes, landings, etc.
+    const hasContent = hobbs.out || hobbs.in_ || hobbs.total || topics.length || notes.length || (landings && landings.length) || (imc && imc.totalSeconds > 0);
+    if (!hasContent) return false;
+
+    const archiveKey = `cfi_lessons_${student.id}`;
+    const existing = ls.get(archiveKey, []);
+    const lesson = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      dateLabel: today,
+      hobbs,
+      topics,
+      checkedTopics,
+      notes,
+      loggingSplit: loggingSplit || null,
+      landings: landings || [],
+      landingAirport: landingAirport || null,
+      imc: imc || null,
+      formattedText: buildArchiveText(),
+      studentSnapshot: { name: student.name, trainingType: student.trainingType, stage: student.stage, retrain: student.retrain },
+    };
+    ls.set(archiveKey, [lesson, ...existing]);
+    return true;
+  }
+
   function copyAll() {
     // Clipboard gets ONLY the notes — not student info, HOBBS, or "Need to Cover"
     const clipboardText = buildClipboardText();
@@ -1709,30 +2447,35 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight }) {
       });
     }
 
-    // Archive captures the FULL lesson — student info, HOBBS, topics, and notes
-    const hasContent = hobbs.out || hobbs.in_ || hobbs.total || topics.length || notes.length;
-    if (!hasContent) return;
+    // Also archive the lesson when copying
+    saveLesson();
+  }
 
-    const archiveKey = `cfi_lessons_${student.id}`;
-    const existing = ls.get(archiveKey, []);
-    const lesson = {
-      id: Date.now().toString(),
-      timestamp: Date.now(),
-      dateLabel: today,
-      hobbs,
-      topics,
-      checkedTopics,
-      notes,
-      formattedText: buildArchiveText(),
-      studentSnapshot: { name: student.name, trainingType: student.trainingType, stage: student.stage, retrain: student.retrain },
-    };
-    ls.set(archiveKey, [lesson, ...existing]);
+  function handleSaveOnly() {
+    const ok = saveLesson();
+    if (ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
+      if (isEditing && onExitEditMode) onExitEditMode();
+    } else {
+      window.alert("Nothing to save yet — fill in HOBBS, topics, notes, or landings first.");
+    }
   }
 
   function clearAll() {
-    if (!window.confirm("Start fresh? This clears the current session.")) return;
-    setHobbs({ out: "", in_: "", total: "", calculatedField: null });
-    setTopics([]); setCheckedTopics({}); setNotes([]);
+    if (!window.confirm("Clear this lesson?\n\nThis will erase HOBBS, landings, topics, notes, and the logging split. This cannot be undone.")) return;
+    // Wipe the entire lesson state slot in App() — this is the single source of truth.
+    // The lifted state will reset to defaults on next render.
+    if (onLessonCleared) {
+      onLessonCleared();
+    } else {
+      // Fallback for edge cases — manually clear each field
+      setHobbs({ out: "", in_: "", total: "", calculatedField: null });
+      setTopics([]); setCheckedTopics({}); setNotes([]);
+      if (setLandings) setLandings([]);
+      if (setLandingAirport) setLandingAirport(null);
+      if (clearLoggingSplit) clearLoggingSplit();
+    }
   }
 
   return (
@@ -1755,13 +2498,27 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight }) {
               display: "flex", alignItems: "center", gap: 2,
               fontFamily: FONT_TEXT,
             }}>‹ Students</button>
-            {!student.oneTime && (
-              <button onClick={onViewHistory} style={{
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {!student.oneTime && (
+                <button onClick={onViewHistory} style={{
+                  background: "transparent", border: "none",
+                  color: THEME.red, fontSize: 16, fontWeight: 400,
+                  cursor: "pointer", padding: "4px 8px", fontFamily: FONT_TEXT,
+                }}>History</button>
+              )}
+              <button onClick={onOpenSettings} aria-label="Settings" style={{
                 background: "transparent", border: "none",
-                color: THEME.red, fontSize: 16, fontWeight: 400,
+                color: THEME.red,
                 cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
-              }}>History</button>
-            )}
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {/* Gear icon SVG */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1782,42 +2539,111 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight }) {
       </div>
 
       <div style={{ maxWidth: 580, margin: "0 auto", padding: "0 16px" }}>
-        <HobbsSection data={hobbs} setData={setHobbs} />
-        <TopicPicker trainingType={student.trainingType} stage={student.stage} topics={topics} setTopics={setTopics} checked={checkedTopics} setChecked={setCheckedTopics} />
-        <NotesSection trainingType={student.trainingType} notes={notes} setNotes={setNotes} />
+        {isEditing && (
+          <div style={{
+            padding: "10px 14px",
+            marginBottom: 14,
+            background: `${THEME.red}1a`,
+            border: `1px solid ${THEME.red}40`,
+            borderRadius: 10,
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 14 }}>✏️</span>
+            <div style={{ flex: 1, fontSize: 12, color: THEME.text, fontFamily: FONT_TEXT, lineHeight: 1.4 }}>
+              <span style={{ fontWeight: 600 }}>Editing saved lesson.</span>{" "}
+              <span style={{ color: THEME.textSecondary }}>Tap Save Lesson when done — the original will be replaced.</span>
+            </div>
+          </div>
+        )}
+        {/* Tools — rendered in user-customized order, hidden tools skipped.
+            Order and visibility are configured on the Settings page (gear icon). */}
+        {(() => {
+          const renderTool = (id) => {
+            switch (id) {
+              case "hobbs":
+                return <HobbsSection data={hobbs} setData={setHobbs} />;
+              case "solar":
+                return (
+                  <>
+                    <button onClick={() => onOpenDayNight(hobbs.total || "")} style={{
+                      width: "100%", padding: "11px",
+                      background: "transparent", border: `1px solid ${THEME.border}`,
+                      borderRadius: 11, color: THEME.textSecondary,
+                      fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      fontFamily: FONT_TEXT, marginBottom: loggingSplit ? 8 : 16,
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    }}>
+                      <span style={{ fontSize: 14 }}>☀️</span>
+                      <span>Solar Information</span>
+                    </button>
+                    {loggingSplit && (
+                      <div style={{
+                        display: "flex", alignItems: "center",
+                        padding: "8px 14px",
+                        marginBottom: 16,
+                        background: THEME.surface,
+                        border: `0.5px solid ${THEME.border}`,
+                        borderRadius: 10,
+                        gap: 12,
+                      }}>
+                        <span style={{ fontSize: 13, opacity: 0.7 }}>☀️</span>
+                        <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 14, fontFamily: FONT_TEXT, fontSize: 13, color: THEME.textSecondary, letterSpacing: -0.1 }}>
+                          <span>Day <span style={{ color: THEME.text, fontFamily: FONT_MONO, fontWeight: 600, letterSpacing: 0 }}>{loggingSplit.dayHours.toFixed(1)}</span></span>
+                          <span>Night <span style={{ color: THEME.red, fontFamily: FONT_MONO, fontWeight: 600, letterSpacing: 0 }}>{loggingSplit.nightHours.toFixed(1)}</span></span>
+                          <span style={{ color: THEME.textTertiary }}>Total <span style={{ color: THEME.textSecondary, fontFamily: FONT_MONO, fontWeight: 500, letterSpacing: 0 }}>{loggingSplit.totalHours.toFixed(1)}</span></span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              case "landings":
+                return <LandingTracker landings={landings} setLandings={setLandings} landingAirport={landingAirport} setLandingAirport={setLandingAirport} />;
+              case "imc":
+                return <IMCTimer imc={imc} setImc={setImc} />;
+              case "topics":
+                return <TopicPicker trainingType={student.trainingType} stage={student.stage} topics={topics} setTopics={setTopics} checked={checkedTopics} setChecked={setCheckedTopics} />;
+              case "notes":
+                return <NotesSection trainingType={student.trainingType} notes={notes} setNotes={setNotes} />;
+              default:
+                return null;
+            }
+          };
+          return toolOrder
+            .filter(id => toolVisibility[id] !== false)
+            .map(id => <div key={id}>{renderTool(id)}</div>);
+        })()}
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <button onClick={copyAll} style={{
             flex: 1,
             background: copied ? THEME.green : THEME.red,
             border: "none", borderRadius: 13,
-            color: "#fff", fontWeight: 600, fontSize: 16,
-            padding: "15px", cursor: "pointer",
+            color: "#fff", fontWeight: 600, fontSize: 15,
+            padding: "14px 10px", cursor: "pointer",
             fontFamily: FONT_TEXT, letterSpacing: -0.2,
             transition: "all 0.25s",
             boxShadow: copied ? "0 4px 24px rgba(48,209,88,0.3)" : `0 4px 20px ${THEME.redGlow}`,
           }}>{copied ? "✓ Copied" : "Copy Notes"}</button>
+          <button onClick={handleSaveOnly} style={{
+            flex: 1,
+            background: saved ? THEME.green : THEME.surface,
+            border: saved ? "none" : `1px solid ${THEME.border}`,
+            borderRadius: 13,
+            color: saved ? "#fff" : THEME.text,
+            fontSize: 15, fontWeight: 600,
+            padding: "14px 10px", cursor: "pointer",
+            fontFamily: FONT_TEXT, letterSpacing: -0.2,
+            transition: "all 0.25s",
+            boxShadow: saved ? "0 4px 24px rgba(48,209,88,0.3)" : "none",
+          }}>{saved ? "✓ Saved" : "Save Lesson"}</button>
           <button onClick={clearAll} style={{
             background: THEME.surface, border: `1px solid ${THEME.border}`,
             borderRadius: 13, color: THEME.textSecondary,
-            fontSize: 15, padding: "15px 18px", cursor: "pointer",
+            fontSize: 14, padding: "14px 14px", cursor: "pointer",
             fontFamily: FONT_TEXT, fontWeight: 500,
           }}>Clear</button>
         </div>
-
-        {/* Solar Information shortcut */}
-        <button onClick={() => onOpenDayNight(hobbs.total || "")} style={{
-          width: "100%", padding: "11px",
-          background: "transparent", border: `1px solid ${THEME.border}`,
-          borderRadius: 11, color: THEME.textSecondary,
-          fontSize: 13, fontWeight: 500, cursor: "pointer",
-          fontFamily: FONT_TEXT, marginBottom: 16,
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        }}>
-          <span style={{ fontSize: 14 }}>🌅</span>
-          <span>Solar Information</span>
-        </button>
 
         {/* Live preview */}
         {notes.length > 0 && (
@@ -1953,7 +2779,7 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
 
 // ─── Past Lesson Detail (read-only view) ──────────────────────────────────────
 
-function PastLessonDetail({ lesson, onBack }) {
+function PastLessonDetail({ lesson, onBack, onEdit }) {
   const [copied, setCopied] = useState(false);
 
   // Build notes-only clipboard text from the archived lesson — matches Copy Notes format
@@ -2044,6 +2870,128 @@ function PastLessonDetail({ lesson, onBack }) {
           </Card>
         )}
 
+        {/* Logging Split — only if it was saved with this lesson */}
+        {lesson.loggingSplit && (
+          <Card style={{ padding: "14px 16px", marginBottom: 14, border: `1px solid ${THEME.red}40` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 0 10px" }}>
+              <SectionLabel style={{ padding: 0 }}>Logging Split</SectionLabel>
+              <span style={{ fontSize: 13, color: THEME.textTertiary, fontFamily: FONT_TEXT }}>☀️</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Total</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{lesson.loggingSplit.totalHours.toFixed(1)}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Day</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{lesson.loggingSplit.dayHours.toFixed(1)}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Night</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: THEME.red, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{lesson.loggingSplit.nightHours.toFixed(1)}</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Landings — only if any were logged this lesson */}
+        {lesson.landings && lesson.landings.length > 0 && (
+          <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <SectionLabel style={{ padding: 0 }}>Landings</SectionLabel>
+              {lesson.landingAirport && (
+                <span style={{ fontSize: 11, color: THEME.textSecondary, fontFamily: FONT_MONO, fontWeight: 600 }}>
+                  @ {lesson.landingAirport[0]}
+                </span>
+              )}
+            </div>
+            {(() => {
+              const tg = lesson.landings.filter(l => l.type === "touchgo").length;
+              const fs = lesson.landings.filter(l => l.type === "fullstop").length;
+              const night = lesson.landings.filter(l => l.isNight === true).length;
+              const day = lesson.landings.filter(l => l.isNight === false).length;
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>T&G</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{tg}</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Full Stop</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{fs}</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Day</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{day}</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Night</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: THEME.red, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{night}</div>
+                  </div>
+                </div>
+              );
+            })()}
+            <div style={{ background: THEME.surface2, borderRadius: 9, border: `0.5px solid ${THEME.border}`, overflow: "hidden" }}>
+              {lesson.landings.map((l, idx) => (
+                <div key={l.id} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 12px",
+                  borderBottom: idx < lesson.landings.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                }}>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: THEME.textSecondary, minWidth: 42 }}>
+                    {new Date(l.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                  </span>
+                  <span style={{ fontSize: 12, color: THEME.text, fontFamily: FONT_TEXT, flex: 1 }}>
+                    {l.type === "touchgo" ? "Touch & Go" : "Full Stop"}
+                  </span>
+                  {l.isNight === true && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      color: THEME.red, fontFamily: FONT_MONO,
+                      background: THEME.redDim, border: `0.5px solid ${THEME.red}40`,
+                      padding: "2px 6px", borderRadius: 4, letterSpacing: 0.3,
+                    }}>NIGHT</span>
+                  )}
+                  {l.isNight === false && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      color: THEME.textSecondary, fontFamily: FONT_MONO,
+                      background: "transparent", border: `0.5px solid ${THEME.border}`,
+                      padding: "2px 6px", borderRadius: 4, letterSpacing: 0.3,
+                    }}>DAY</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* IMC / Actual Instrument Time */}
+        {lesson.imc && (lesson.imc.totalSeconds > 0 || lesson.imc.entryAlt || lesson.imc.exitAlt) && (
+          <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ marginBottom: 10 }}>
+              <SectionLabel style={{ padding: 0 }}>Actual Instrument Time</SectionLabel>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: lesson.imc.entryAlt || lesson.imc.exitAlt ? 12 : 0 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Total</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: THEME.red, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{(lesson.imc.totalSeconds / 3600).toFixed(1)}</div>
+                <div style={{ fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_TEXT, marginTop: 2 }}>hrs</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Entry Alt</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: lesson.imc.entryAlt ? THEME.text : THEME.textTertiary, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{lesson.imc.entryAlt || "—"}</div>
+                <div style={{ fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_TEXT, marginTop: 2 }}>MSL</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: THEME.textSecondary, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.2 }}>Exit Alt</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: lesson.imc.exitAlt ? THEME.text : THEME.textTertiary, fontFamily: FONT_MONO, letterSpacing: -0.5 }}>{lesson.imc.exitAlt || "—"}</div>
+                <div style={{ fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_TEXT, marginTop: 2 }}>MSL</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {topics.length > 0 && (
           <Card style={{ marginBottom: 14 }}>
             <div style={{ padding: "14px 16px", borderBottom: `0.5px solid ${THEME.separator}` }}>
@@ -2113,16 +3061,29 @@ function PastLessonDetail({ lesson, onBack }) {
           </Card>
         )}
 
-        <button onClick={copyAgain} style={{
-          width: "100%",
-          background: copied ? THEME.green : THEME.red,
-          border: "none", borderRadius: 13,
-          color: "#fff", fontWeight: 600, fontSize: 16,
-          padding: "15px", cursor: "pointer",
-          fontFamily: FONT_TEXT, letterSpacing: -0.2,
-          boxShadow: copied ? "0 4px 24px rgba(48,209,88,0.3)" : `0 4px 20px ${THEME.redGlow}`,
-          transition: "all 0.25s",
-        }}>{copied ? "✓ Copied" : "Copy Again"}</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={copyAgain} style={{
+            flex: 1,
+            background: copied ? THEME.green : THEME.red,
+            border: "none", borderRadius: 13,
+            color: "#fff", fontWeight: 600, fontSize: 15,
+            padding: "14px 10px", cursor: "pointer",
+            fontFamily: FONT_TEXT, letterSpacing: -0.2,
+            boxShadow: copied ? "0 4px 24px rgba(48,209,88,0.3)" : `0 4px 20px ${THEME.redGlow}`,
+            transition: "all 0.25s",
+          }}>{copied ? "✓ Copied" : "Copy Again"}</button>
+          {onEdit && (
+            <button onClick={() => onEdit(lesson)} style={{
+              flex: 1,
+              background: THEME.surface,
+              border: `1px solid ${THEME.border}`,
+              borderRadius: 13,
+              color: THEME.text, fontSize: 15, fontWeight: 600,
+              padding: "14px 10px", cursor: "pointer",
+              fontFamily: FONT_TEXT, letterSpacing: -0.2,
+            }}>Edit Lesson</button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2131,7 +3092,7 @@ function PastLessonDetail({ lesson, onBack }) {
 
 // ─── Airports Database ───────────────────────────────────────────────────────
 const AIRPORTS = [
-  ["KATL","Hartsfield-Jackson Atlanta Intl",33.6407,-84.4277],
+["KATL","Hartsfield-Jackson Atlanta Intl",33.6407,-84.4277],
   ["KLAX","Los Angeles Intl",33.9425,-118.4081],
   ["KORD","Chicago O'Hare Intl",41.9742,-87.9073],
   ["KDFW","Dallas/Fort Worth Intl",32.8998,-97.0403],
@@ -2415,7 +3376,90 @@ const AIRPORTS = [
   ["KVAY","South Jersey Regional",39.9428,-74.8456],
   ["KILG","Wilmington (Delaware)",39.6787,-75.6065],
   ["KESN","Easton/Newnam Field",38.8042,-76.0688],
-  ["KOXB","Ocean City Municipal",38.3104,-75.124]
+  ["KOXB","Ocean City Municipal",38.3104,-75.124],
+  // Texas/OK/AR/LA region (250nm of KADS) — added v4.25
+  ["KADM","Ardmore Municipal",34.303,-97.0193],
+  ["KAEX","Alexandria Intl",31.3274,-92.5498],
+  ["KAQO","Llano Municipal",30.7836,-98.6622],
+  ["KARM","Wharton Regional",29.2542,-96.1542],
+  ["KATA","Hall-Miller Municipal (Atlanta)",33.0958,-94.1947],
+  ["KAVK","Alva Regional",36.7732,-98.67],
+  ["KAXS","Altus Quartz Mountain Regional",34.6981,-99.3389],
+  ["KBAD","Barksdale AFB",32.5018,-93.6628],
+  ["KBAZ","New Braunfels National",29.7045,-98.0421],
+  ["KBKD","Stephens County (Breckenridge)",32.7191,-98.891],
+  ["KBMQ","Burnet Municipal-Kate Craddock Field",30.7389,-98.2386],
+  ["KBMT","Beaumont Muni",30.0699,-94.2155],
+  ["KBPC","Bonham Municipal Jones Field",33.6121,-96.1789],
+  ["KBVO","Bartlesville Municipal",36.7623,-96.0107],
+  ["KBWD","Brownwood Regional",31.7937,-98.9564],
+  ["KBYY","Bay City Municipal",28.9733,-95.8636],
+  ["KCDH","Harrell Field (Camden)",33.6228,-92.7633],
+  ["KCDS","Childress Municipal",34.4338,-100.2881],
+  ["KCFD","Coulter Field (Bryan)",30.7158,-96.3314],
+  ["KCHK","Chickasha Municipal",35.0975,-97.9676],
+  ["KCPT","Cleburne Regional",32.3539,-97.4366],
+  ["KCRS","Corsicana Municipal/Campbell Field",32.0281,-96.4006],
+  ["KCSM","Clinton-Sherman",35.3398,-99.2003],
+  ["KCWC","Kickapoo Downtown (Wichita Falls)",33.8585,-98.4904],
+  ["KDKR","Houston County (Crockett)",31.3506,-95.4153],
+  ["KDTN","Shreveport Downtown",32.5402,-93.7449],
+  ["KDUA","Eaker Field (Durant)",33.9425,-96.3934],
+  ["KDUC","Halliburton Field (Duncan)",34.4709,-97.9598],
+  ["KDWH","David Wayne Hooks Memorial",30.0618,-95.5527],
+  ["KELD","South Arkansas Regional (El Dorado)",33.221,-92.8133],
+  ["KEND","Vance AFB",36.3392,-97.9165],
+  ["KESF","Esler Field",31.3949,-92.2958],
+  ["KETN","Eastland Municipal",32.4135,-98.8095],
+  ["KFDR","Frederick Municipal",34.352,-98.9839],
+  ["KFSI","Henry Post AAF (Fort Sill)",34.6498,-98.4022],
+  ["KFSM","Fort Smith Regional",35.3366,-94.3674],
+  ["KFYV","Drake Field (Fayetteville)",36.0051,-94.17],
+  ["KGAG","Gage",36.2956,-99.7763],
+  ["KGLE","Gainesville Municipal",33.6515,-97.1969],
+  ["KGLS","Scholes Intl (Galveston)",29.2654,-94.8604],
+  ["KGOK","Guthrie-Edmond Regional",35.8497,-97.4159],
+  ["KGVT","Majors Field (Greenville)",33.0678,-96.0653],
+  ["KHHF","Hemphill County (Canadian)",35.8975,-100.4035],
+  ["KHLR","Hood AAF",31.1386,-97.7144],
+  ["KHOT","Hot Springs Memorial",34.4781,-93.0962],
+  ["KHQZ","Mesquite Metro",32.747,-96.5305],
+  ["KHYI","San Marcos Regional",29.8927,-97.8628],
+  ["KJSO","Cherokee County (Jacksonville)",31.8694,-95.2174],
+  ["KJWY","Mid-Way Regional",32.4564,-96.9125],
+  ["KLAW","Lawton-Fort Sill Regional",34.5677,-98.4166],
+  ["KLBR","Clarksville Red River County",33.5912,-95.0631],
+  ["KLTS","Altus AFB",34.6671,-99.2667],
+  ["KMEZ","Mena Intermountain Municipal",34.5453,-94.2027],
+  ["KMKO","Davis Field (Muskogee)",35.6566,-95.3666],
+  ["KMLC","McAlester Regional",34.8824,-95.7833],
+  ["KMLU","Monroe Regional",32.5108,-92.0376],
+  ["KMNE","Magnolia Municipal",33.2275,-93.2168],
+  ["KMNZ","Hammonds Field (Hampton, AR)",33.5346,-92.471],
+  ["KNFW","NAS Fort Worth JRB",32.7693,-97.4406],
+  ["KOCH","A L Mangham Jr Regional (Nacogdoches)",31.578,-94.7095],
+  ["KOJA","Thomas P Stafford (Weatherford)",35.5414,-98.6679],
+  ["KOUN","University of Oklahoma Westheimer (Norman)",35.2456,-97.472],
+  ["KPNC","Ponca City Regional",36.73,-97.0998],
+  ["KPRX","Cox Field (Paris)",33.6364,-95.4506],
+  ["KPSN","Palestine Municipal",31.7796,-95.7064],
+  ["KPVJ","Pauls Valley Municipal",34.711,-97.1228],
+  ["KPWA","Wiley Post (Oklahoma City)",35.5341,-97.647],
+  ["KRND","Randolph AFB",29.5294,-98.2789],
+  ["KRPH","Graham Municipal",33.11,-98.5547],
+  ["KRSN","Ruston Regional",32.5145,-92.5907],
+  ["KRVS","Richard L Jones Jr (Tulsa Riverside)",36.0395,-95.9846],
+  ["KRYW","Lago Vista (Rusty Allen)",30.4986,-97.9694],
+  ["KSEP","Stephenville Clark Regional",32.2153,-98.1776],
+  ["KSHV","Shreveport Regional",32.4466,-93.8256],
+  ["KSNL","Shawnee Regional",35.3577,-96.9425],
+  ["KSPS","Sheppard AFB / Wichita Falls Muni",33.9888,-98.4919],
+  ["KSWO","Stillwater Regional",36.1611,-97.0857],
+  ["KSWW","Avenger Field (Sweetwater)",32.4674,-100.4666],
+  ["KTPL","Draughon-Miller Central Texas Regional (Temple)",31.1525,-97.4078],
+  ["KTXK","Texarkana Regional Webb Field",33.4537,-93.991],
+  ["KWDG","Enid Woodring Regional",36.3792,-97.7911],
+  ["KXNA","Northwest Arkansas Regional",36.2818,-94.3068]
 ];
 
 // ─── Twilight Calculator ──────────────────────────────────────────────────────
@@ -2532,7 +3576,7 @@ function formatTime(d) {
 
 // ─── Day/Night Calculator ─────────────────────────────────────────────────────
 
-function DayNightCalc({ onBack, initialHobbs }) {
+function DayNightCalc({ onBack, initialHobbs, returnLabel, onSaveSplit }) {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
 
@@ -2546,20 +3590,6 @@ function DayNightCalc({ onBack, initialHobbs }) {
   const [destAirport, setDestAirport] = useState(DEFAULT_AIRPORT);
   const [engineStart, setEngineStart] = useState(""); // HH:MM
   const [hobbsTotal, setHobbsTotal] = useState(initialHobbs || ""); // hours, e.g. "1.8"
-
-  // Taxi defaults — adjustable in settings, persisted to localStorage
-  const [taxiOutMin, setTaxiOutMin] = useState(() => ls.get("cfi_taxi_out_min", 8));
-  const [taxiInMin, setTaxiInMin] = useState(() => ls.get("cfi_taxi_in_min", 5));
-  const [showSettings, setShowSettings] = useState(false);
-
-  function saveTaxiOut(v) {
-    const n = Math.max(0, Math.min(60, parseInt(v, 10) || 0));
-    setTaxiOutMin(n); ls.set("cfi_taxi_out_min", n);
-  }
-  function saveTaxiIn(v) {
-    const n = Math.max(0, Math.min(60, parseInt(v, 10) || 0));
-    setTaxiInMin(n); ls.set("cfi_taxi_in_min", n);
-  }
 
   // Filter airports by query
   function filterAirports(q) {
@@ -2582,22 +3612,19 @@ function DayNightCalc({ onBack, initialHobbs }) {
     return d;
   }
 
-  // Compute takeoff/landing from engine start + HOBBS + taxi times
-  // Engine start --[taxi out]--> Takeoff --[HOBBS]--> Landing --[taxi in]--> Engine stop
   const engineStartDate = combineDateTime(date, engineStart);
   const hobbsHours = parseFloat(hobbsTotal);
   const hobbsValid = !isNaN(hobbsHours) && hobbsHours > 0 && hobbsHours < 24;
 
+  // Flight time = engine start to engine stop. Per 14 CFR Part 1 § 1.1, night logging
+  // captures the entire flight time (including taxi) when it falls during night.
   let takeoffDate = null, landingDate = null, adjustedLanding = null;
   if (engineStartDate && hobbsValid) {
-    takeoffDate = new Date(engineStartDate.getTime() + taxiOutMin * 60 * 1000);
-    landingDate = new Date(takeoffDate.getTime() + hobbsHours * 60 * 60 * 1000);
+    takeoffDate = engineStartDate;
+    landingDate = new Date(engineStartDate.getTime() + hobbsHours * 60 * 60 * 1000);
     adjustedLanding = landingDate;
   }
-  // engine stop = landing + taxi in
-  const engineStopDate = adjustedLanding
-    ? new Date(adjustedLanding.getTime() + taxiInMin * 60 * 1000)
-    : null;
+  const engineStopDate = adjustedLanding;
 
   // Parse YYYY-MM-DD as a LOCAL date (not UTC midnight) — avoids day-shift bugs
   function parseLocalDate(dateStr) {
@@ -2710,19 +3737,13 @@ function DayNightCalc({ onBack, initialHobbs }) {
         paddingTop: "env(safe-area-inset-top, 0px)",
       }}>
         <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <button onClick={onBack} style={{
-              background: "transparent", border: "none",
-              color: THEME.red, fontSize: 16, fontWeight: 400,
-              cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
-            }}>‹ Home</button>
-            <button onClick={() => setShowSettings(s => !s)} style={{
-              background: "transparent", border: "none",
-              color: showSettings ? THEME.red : THEME.textSecondary,
-              fontSize: 16, fontWeight: 400,
-              cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
-            }}>{showSettings ? "Done" : "Settings"}</button>
-          </div>
+          <button onClick={onBack} style={{
+            background: "transparent", border: "none",
+            color: THEME.red, fontSize: 16, fontWeight: 500,
+            cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            maxWidth: "100%", overflow: "hidden",
+            textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{returnLabel || "‹ Home"}</button>
         </div>
       </div>
 
@@ -2738,54 +3759,6 @@ function DayNightCalc({ onBack, initialHobbs }) {
         <p style={{ margin: "6px 0 18px", color: THEME.textSecondary, fontSize: 15 }}>
           Calculate day vs night logging time for a flight
         </p>
-
-        {/* Settings panel — appears when Settings is toggled */}
-        {showSettings && (
-          <Card style={{ padding: "14px 16px", marginBottom: 14, border: `1px solid ${THEME.red}40` }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: THEME.red, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 10, fontFamily: FONT_TEXT }}>
-              Taxi Defaults
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Taxi Out (min)</div>
-                <input value={taxiOutMin}
-                  onChange={e => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
-                    saveTaxiOut(v);
-                  }}
-                  inputMode="numeric" pattern="[0-9]*"
-                  style={{
-                    width: "100%", boxSizing: "border-box", minWidth: 0,
-                    background: THEME.surface2, border: `1px solid ${THEME.border}`,
-                    borderRadius: 10, padding: "10px 8px",
-                    color: THEME.text, fontSize: 15, fontFamily: FONT_MONO, letterSpacing: 0.2,
-                    outline: "none", textAlign: "center",
-                    appearance: "none", WebkitAppearance: "none",
-                  }} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: THEME.textSecondary, fontWeight: 600, marginBottom: 5, fontFamily: FONT_TEXT, textTransform: "uppercase", letterSpacing: 0.2 }}>Taxi In (min)</div>
-                <input value={taxiInMin}
-                  onChange={e => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 2);
-                    saveTaxiIn(v);
-                  }}
-                  inputMode="numeric" pattern="[0-9]*"
-                  style={{
-                    width: "100%", boxSizing: "border-box", minWidth: 0,
-                    background: THEME.surface2, border: `1px solid ${THEME.border}`,
-                    borderRadius: 10, padding: "10px 8px",
-                    color: THEME.text, fontSize: 15, fontFamily: FONT_MONO, letterSpacing: 0.2,
-                    outline: "none", textAlign: "center",
-                    appearance: "none", WebkitAppearance: "none",
-                  }} />
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic", lineHeight: 1.45 }}>
-              Used to calculate takeoff and landing time from engine start + HOBBS. Saved automatically.
-            </div>
-          </Card>
-        )}
 
         {/* Date */}
         <Card style={{ padding: "14px 16px", marginBottom: 14 }}>
@@ -2927,18 +3900,17 @@ function DayNightCalc({ onBack, initialHobbs }) {
             </div>
           </div>
 
-          {/* Computed takeoff/landing preview + fine-print explanation */}
+          {/* Computed flight window preview */}
           {takeoffDate && adjustedLanding && (
             <div style={{ marginTop: 10, padding: "10px 12px", background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8 }}>
               <div style={{ fontSize: 13, color: THEME.text, fontFamily: FONT_MONO, letterSpacing: 0.2 }}>
-                Takeoff <span style={{ color: THEME.red, fontWeight: 600 }}>{formatTime(takeoffDate)}</span> · Landing <span style={{ color: THEME.red, fontWeight: 600 }}>{formatTime(adjustedLanding)}</span>
-                {engineStopDate && <> · Engine Stop <span style={{ color: THEME.textSecondary }}>{formatTime(engineStopDate)}</span></>}
+                Engine Start <span style={{ color: THEME.red, fontWeight: 600 }}>{formatTime(takeoffDate)}</span> · Engine Stop <span style={{ color: THEME.red, fontWeight: 600 }}>{formatTime(adjustedLanding)}</span>
               </div>
             </div>
           )}
 
           <div style={{ marginTop: 8, fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT, fontStyle: "italic", lineHeight: 1.45 }}>
-            Estimates takeoff as engine start + {taxiOutMin} min taxi out, and landing as takeoff + HOBBS. Adjust taxi defaults in Settings.
+            Flight time = engine start to engine stop (HOBBS total).
           </div>
         </Card>
 
@@ -2984,15 +3956,27 @@ function DayNightCalc({ onBack, initialHobbs }) {
               </div>
             </div>
             {nightStart && nightHours > 0 && (
-              <div style={{ fontSize: 12, color: THEME.textSecondary, textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic" }}>
+              <div style={{ fontSize: 12, color: THEME.textSecondary, textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic", marginBottom: 12 }}>
                 Night logging begins at {formatTime(nightStart)}
               </div>
             )}
             {nightHours === 0 && (
-              <div style={{ fontSize: 12, color: THEME.textSecondary, textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic" }}>
+              <div style={{ fontSize: 12, color: THEME.textSecondary, textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic", marginBottom: 12 }}>
                 Entire flight is during day — no night time
               </div>
             )}
+
+            {/* Detailed calculation breakdown */}
+            <div style={{
+              marginTop: 4, padding: "12px 14px",
+              background: "rgba(0,0,0,0.25)",
+              borderRadius: 9,
+              border: `0.5px solid ${THEME.separator}`,
+            }}>
+              <div style={{ fontSize: 11, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.6 }}>
+                Per <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: THEME.text, fontWeight: 600 }}>14 CFR Part 1 § 1.1</span>, "night" means the time between the end of evening civil twilight and the beginning of morning civil twilight.
+              </div>
+            </div>
           </Card>
         )}
 
@@ -3002,8 +3986,39 @@ function DayNightCalc({ onBack, initialHobbs }) {
             background: "transparent", border: `1px solid ${THEME.border}`,
             borderRadius: 11, color: THEME.textSecondary,
             fontSize: 14, fontWeight: 500, cursor: "pointer",
-            fontFamily: FONT_TEXT,
+            fontFamily: FONT_TEXT, marginBottom: returnLabel && returnLabel !== "‹ Home" ? 10 : 0,
           }}>Reset</button>
+        )}
+
+        {/* Prominent return-to-lesson button (only shown when launched from a lesson) */}
+        {returnLabel && returnLabel !== "‹ Home" && (
+          <button onClick={() => {
+            // If there's a complete calculation, save it to the lesson
+            if (calcReady && onSaveSplit) {
+              onSaveSplit({
+                totalHours,
+                dayHours,
+                nightHours,
+                nightStart: nightStart ? nightStart.toISOString() : null,
+                engineStart: takeoffDate ? takeoffDate.toISOString() : null,
+                engineStop: adjustedLanding ? adjustedLanding.toISOString() : null,
+                depAirport: depAirport ? depAirport[0] : null,
+                destAirport: destAirport ? destAirport[0] : null,
+              });
+            }
+            onBack();
+          }} style={{
+            width: "100%", padding: "15px",
+            background: THEME.red, border: "none",
+            borderRadius: 13, color: "#fff",
+            fontSize: 16, fontWeight: 600, cursor: "pointer",
+            fontFamily: FONT_TEXT, letterSpacing: -0.2,
+            boxShadow: `0 4px 20px ${THEME.redGlow}`,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>
+            <span>↩</span>
+            <span>{calcReady ? "Save & Return to Lesson" : "Return to Lesson"}</span>
+          </button>
         )}
       </div>
     </div>
@@ -3016,17 +4031,86 @@ export default function App() {
   // view: { type: "selector" } | { type: "notes", student } | { type: "history", student } | { type: "lesson", student, lesson } | { type: "daynight" }
   const [view, setView] = useState({ type: "selector" });
 
+  // Lesson state — lifted here so it survives navigation away to Solar Information
+  // Each student gets their own state slot, keyed by student.id.
+  // When switching to a different student, that student's state starts fresh.
+  const [lessonStates, setLessonStates] = useState({});
+
+  function getLessonState(studentId) {
+    return lessonStates[studentId] || {
+      hobbs: { out: "", in_: "", total: "", calculatedField: null },
+      topics: [],
+      checkedTopics: {},
+      notes: [],
+      landings: [],
+      landingAirport: null,
+      imc: { startTs: null, entryAlt: "", exitAlt: "", totalSeconds: 0 },
+    };
+  }
+  function updateLessonState(studentId, updater) {
+    setLessonStates(prev => {
+      // CRITICAL: must use `prev` here, not getLessonState() which reads stale closure
+      const current = prev[studentId] || {
+        hobbs: { out: "", in_: "", total: "", calculatedField: null },
+        topics: [],
+        checkedTopics: {},
+        notes: [],
+        landings: [],
+        landingAirport: null,
+        imc: { startTs: null, entryAlt: "", exitAlt: "", totalSeconds: 0 },
+      };
+      return {
+        ...prev,
+        [studentId]: { ...current, ...updater(current) },
+      };
+    });
+  }
+  function clearLessonState(studentId) {
+    setLessonStates(prev => {
+      const next = { ...prev };
+      delete next[studentId];
+      return next;
+    });
+  }
+
   useEffect(() => {
     document.body.style.background = THEME.bg;
     document.body.style.WebkitFontSmoothing = "antialiased";
     document.body.style.MozOsxFontSmoothing = "grayscale";
   }, []);
 
+  // Scroll to top whenever the user navigates between views — like a normal website does.
+  // Without this the browser keeps the previous page's scroll position.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view.type, view.student?.id, view.lesson?.id]);
+
   if (view.type === "notes") {
+    const sid = view.student.id;
+    const state = getLessonState(sid);
+    const updateField = (field) => (valOrFn) => {
+      updateLessonState(sid, s => ({
+        [field]: typeof valOrFn === "function" ? valOrFn(s[field]) : valOrFn,
+      }));
+    };
     return <NotesApp student={view.student}
       onBack={() => setView({ type: "selector" })}
       onViewHistory={() => setView({ type: "history", student: view.student })}
-      onOpenDayNight={(hobbsTotal) => setView({ type: "daynight", returnTo: "notes", student: view.student, initialHobbs: hobbsTotal })} />;
+      onOpenDayNight={(hobbsTotal) => setView({ type: "daynight", returnTo: "notes", student: view.student, initialHobbs: hobbsTotal, editing: view.editing })}
+      onOpenSettings={() => setView({ type: "settings", student: view.student, editing: view.editing })}
+      hobbs={state.hobbs} setHobbs={updateField("hobbs")}
+      topics={state.topics} setTopics={updateField("topics")}
+      checkedTopics={state.checkedTopics} setCheckedTopics={updateField("checkedTopics")}
+      notes={state.notes} setNotes={updateField("notes")}
+      loggingSplit={state.loggingSplit || null}
+      clearLoggingSplit={() => updateLessonState(sid, () => ({ loggingSplit: null }))}
+      landings={state.landings || []} setLandings={updateField("landings")}
+      landingAirport={state.landingAirport || null} setLandingAirport={updateField("landingAirport")}
+      imc={state.imc || { startTs: null, entryAlt: "", exitAlt: "", totalSeconds: 0 }}
+      setImc={updateField("imc")}
+      isEditing={!!view.editing}
+      onExitEditMode={() => setView(v => ({ ...v, editing: false }))}
+      onLessonCleared={() => clearLessonState(sid)} />;
   }
   if (view.type === "history") {
     return <PastLessonsList student={view.student}
@@ -3035,18 +4119,48 @@ export default function App() {
   }
   if (view.type === "lesson") {
     return <PastLessonDetail lesson={view.lesson}
-      onBack={() => setView({ type: "history", student: view.student })} />;
+      onBack={() => setView({ type: "history", student: view.student })}
+      onEdit={(lessonToEdit) => {
+        // Remove the lesson from archive so it doesn't duplicate when saved again
+        const archiveKey = `cfi_lessons_${view.student.id}`;
+        const existing = ls.get(archiveKey, []);
+        ls.set(archiveKey, existing.filter(l => l.id !== lessonToEdit.id));
+        // Load the lesson's data into the in-progress state for this student
+        setLessonStates(prev => ({
+          ...prev,
+          [view.student.id]: {
+            hobbs: lessonToEdit.hobbs || { out: "", in_: "", total: "", calculatedField: null },
+            topics: lessonToEdit.topics || [],
+            checkedTopics: lessonToEdit.checkedTopics || {},
+            notes: lessonToEdit.notes || [],
+            landings: lessonToEdit.landings || [],
+            landingAirport: lessonToEdit.landingAirport || null,
+            loggingSplit: lessonToEdit.loggingSplit || null,
+            imc: lessonToEdit.imc || { startTs: null, entryAlt: "", exitAlt: "", totalSeconds: 0 },
+          },
+        }));
+        // Navigate to the lesson editor in edit mode
+        setView({ type: "notes", student: view.student, editing: true });
+      }} />;
   }
   if (view.type === "daynight") {
+    const returningToLesson = view.returnTo === "notes" && view.student;
     return <DayNightCalc
       initialHobbs={view.initialHobbs || ""}
+      returnLabel={returningToLesson ? `‹ ${view.student.name.split(" ")[0]}'s Lesson` : "‹ Home"}
+      onSaveSplit={returningToLesson ? (split) => {
+        updateLessonState(view.student.id, () => ({ loggingSplit: split }));
+      } : null}
       onBack={() => {
-        if (view.returnTo === "notes" && view.student) {
+        if (returningToLesson) {
           setView({ type: "notes", student: view.student });
         } else {
           setView({ type: "selector" });
         }
       }} />;
+  }
+  if (view.type === "settings") {
+    return <LessonSettings onBack={() => setView({ type: "notes", student: view.student, editing: view.editing })} />;
   }
   return <StudentSelector
     onSelect={(s) => setView({ type: "notes", student: s })}
