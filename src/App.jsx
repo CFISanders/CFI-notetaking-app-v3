@@ -37,25 +37,138 @@ const TRAINING_TYPES = {
 const MASTER_TOPICS = {
   IRA: {
     "Stage 1": {
-      "Maneuvers": ["Steep Turns", "Stall Series", "Unusual Attitude Recovery", "Partial Panel"],
-      "Procedures": ["Intercepting & Tracking Courses", "Holding Procedures", "Instrument Takeoff", "Departure Procedures"],
-      "Approaches": ["ILS Approach", "VOR Approach", "RNAV (GPS) Approach", "LOC Approach"],
+      "Preflight Procedures": [
+        "Airplane Systems Related to IFR Operations (Anti-icing and Deicing)",
+        "Airplane Flight Instruments Operation",
+        "Instrument Flight Deck Check",
+        "GPS Programming",
+        "VOR Equipment Operation",
+      ],
+      "Flight by Reference to Instruments — Full/Partial": [
+        "Straight-and-Level Flight",
+        "Standard-Rate Turns",
+        "Constant Rate Climbs and Descents",
+        "Constant Airspeed Climbs and Descents",
+        "Timed Turns to Magnetic Compass Headings",
+        "Magnetic Compass Turns",
+        "Autopilot Use, if Equipped",
+        "Recovery From Unusual Flight Attitudes",
+      ],
+      "Systems and Equipment Malfunctions": [
+        "Loss of Primary Flight Instrument Indications",
+        "Use of Secondary Flight Displays when Primary Displays Fail",
+      ],
+      "Navigation Systems — Full and Partial": [
+        "GPS Course Interception and Tracking",
+        "VOR Radial Interception and Tracking",
+        "Localizer Course Interception and Tracking",
+        "Intercepting and Tracking DME Arcs",
+        "Autopilot Use for Navigation, if Equipped",
+      ],
     },
     "Stage 2": {
-      "Approaches": ["ILS Approach", "RNAV (GPS) Approach", "VOR Approach", "LOC Approach", "Circling Approach", "DME Arc", "NDB Approach"],
-      "Procedures": ["Holding Procedures", "Missed Approach Procedure", "Arrival Procedures", "En Route IFR"],
-      "Emergencies": ["Partial Panel", "Lost Comms Procedures", "Alternate Airport Planning"],
+      "Air Traffic Control Clearances and Procedures": [
+        "Approach Clearances",
+        "VOR Holding",
+        "GPS Holding",
+        "Localizer Holding",
+        "Intersection Holding",
+      ],
+      "Emergency Operations": [
+        "No-Gyro Radar Vectoring and Approach Procedures",
+        "Partial-Panel Approach Procedures",
+        "Partial-Panel Missed Approach Procedures",
+      ],
+      "Instrument Approach Procedures (Full and Partial Panel)": [
+        "ILS Approaches",
+        "RNAV (GPS) Approaches",
+        "Localizer Approaches",
+        "VOR and VOR/DME Approaches",
+        "Procedure Turn/Course Reversal",
+        "Terminal Arrival Area (TAA)",
+        "Vectors to the Approach Course",
+        "Approach Procedure to Straight-In or Circling Landing Minimums",
+        "Circling Approach",
+        "Missed Approach",
+        "Straight-In Landing",
+        "Wake Turbulence Avoidance",
+        "Wind Shear Avoidance",
+        "Land and Hold Short Operations (LAHSO)",
+      ],
     },
     "Stage 3": {
-      "Cross-Country": ["IFR Flight Plan Filing", "En Route IFR", "Alternate Airport Planning", "Arrival Procedures"],
-      "Approaches": ["ILS Approach", "RNAV (GPS) Approach", "VOR Approach", "Circling Approach"],
-      "Checkride Prep": ["Oral Exam Review", "ACS Standards", "Scenario-Based Decision Making"],
+      "ATC Clearances and Procedures": [
+        "Clearance Copying and Readback",
+        "Compliance with ATC Clearances — Departure, Enroute, Arrival, Approach",
+        "Holding Procedures",
+      ],
+      "Preflight Procedures": [
+        "GPS Programming",
+        "VOR Equipment Operation",
+      ],
+      "Navigation Systems (Full and Partial Panel)": [
+        "GPS Course Interception and Tracking",
+        "VOR Radial Interception and Tracking",
+        "Localizer Course Interception and Tracking",
+        "Intercepting and Tracking DME Arcs",
+        "Autopilot Use for Navigation, if Equipped",
+        "Standard Instrument Departure (SID)",
+        "Obstacle Departure Procedure (ODP)",
+        "Standard Terminal Arrival (STAR)",
+        "Checklist Use",
+        "Radio Communications",
+        "ATC Services",
+        "Use of Flight Deck Displays — Weather and Aeronautical Information",
+      ],
+      "Instrument Approach Procedures": [
+        "ILS Approaches",
+        "RNAV (GPS) Approaches",
+        "Localizer Approaches",
+        "VOR and VOR/DME Approaches",
+        "Procedure Turn/Course Reversal",
+        "Terminal Arrival Area (TAA)",
+        "Vectors to the Approach Course",
+        "Approach Procedure to Straight-In or Circling Landing Minimums",
+        "Circling Approach",
+        "Missed Approach",
+        "Straight-In Landing",
+        "Wake Turbulence Avoidance",
+        "Wind Shear Avoidance",
+        "Land and Hold Short Operations (LAHSO)",
+      ],
+      "Emergency Operations": [
+        "Loss of Communications",
+        "Systems and Equipment Malfunctions",
+        "Loss of Primary Flight Instrument Indicators",
+        "Airframe and Powerplant Icing",
+        "Low Fuel Supply",
+        "Engine Failure",
+        "Partial Panel ILS Approaches",
+        "Partial Panel RNAV (GPS) Approaches",
+        "Partial Panel Localizer Approaches",
+        "Partial Panel VOR and VOR/DME Approaches",
+      ],
     },
   },
   CAX: {
     "Stage 0": {
-      "Fundamentals": ["Steep Turns", "Slow Flight", "Stall Series", "Ground Reference Maneuvers"],
-      "Systems": ["Aircraft Systems Review", "Weight & Balance", "Performance Charts"],
+      "Preflight Preparation": [
+        "Slow Flight",
+        "Power-Off Stalls",
+        "Power-On Stalls",
+        "Accelerated Stalls",
+        "Steep Turns",
+        "Chandelles",
+        "Lazy Eights",
+        "Steep Spiral",
+        "Eights-On-Pylons",
+        "Soft-Field Takeoff and Climb",
+        "Soft-Field Approach and Landing",
+        "Short-Field Takeoff and Maximum Performance Climb",
+        "Short-Field Approach and Landing",
+        "Power off 180° approaches and landings",
+        "Describe standard entry into a traffic pattern as well as the steps to fly a normal traffic pattern.",
+      ],
     },
     "Stage 1": {
       "Preflight Procedures": [
@@ -123,49 +236,206 @@ const MASTER_TOPICS = {
       ],
     },
     "Stage 2": {
-      "Maneuvers": ["Chandelles", "Lazy Eights", "Steep Spirals", "Eights on Pylons", "Power-Off 180"],
-      "Operations": ["High Altitude Operations", "Emergency Descent", "Commercial ACS Standards"],
-      "Cross-Country": ["Commercial XC Planning", "Performance Charts", "Weight & Balance"],
+      "Preflight Procedures": [
+        "Self-Assessment",
+        "Preflight Inspection",
+        "Flight Deck Management",
+        "Engine Starting",
+        "Taxiing",
+        "Before Takeoff Check/Runup",
+      ],
+      "Slow Flight and Stalls": [
+        "Maneuvering During Slow Flight",
+        "Power-Off Stalls",
+        "Power-On Stalls",
+        "Accelerated Stalls",
+        "Spin Awareness",
+      ],
+      "Performance and Ground Reference Maneuvers": [
+        "Steep Turns",
+        "Chandelles",
+        "Lazy Eights",
+        "Eights-On-Pylons",
+        "Steep Spiral",
+      ],
+      "Navigation": [
+        "Pilotage and Dead Reckoning",
+        "Navigation Systems and Radar Services",
+        "Diversion",
+        "Lost Procedures",
+      ],
+      "High Altitude Operations": [
+        "Supplemental Oxygen Use",
+        "Pressurization System Operation",
+      ],
+      "Airport Operations": [
+        "Radio Communications",
+        "Lost Communication Procedures/ATC Light Signals",
+        "Airport, Runway, and Taxiway Signs, Markings, and Lighting",
+        "Traffic Patterns",
+        "Runway Incursion Avoidance",
+        "Wake Turbulence Avoidance",
+        "Wind Shear Avoidance",
+        "Land and Hold Short Operations (LAHSO)",
+      ],
+      "Emergency Operations": [
+        "Systems and Equipment Malfunctions",
+        "Emergency Descent",
+        "Emergency Approach and Landing (Simulated)",
+        "Emergency Equipment and Survival Gear",
+      ],
+      "Takeoffs and Landings": [
+        "Normal Takeoff and Climb",
+        "Normal Approach and Landing",
+        "Soft-Field Takeoff and Climb",
+        "Soft-Field Approach and Landing",
+        "Short-Field Takeoff and Maximum Performance Climb",
+        "Short-Field Approach and Landing",
+        "Power-Off 180 Accuracy Approach and Landing",
+        "Go-Around/Rejected Landing",
+      ],
     },
     "Stage 3": {
-      "Checkride Prep": ["Oral Exam Review", "ACS Standards", "Commercial Privileges & Limitations"],
-      "Maneuvers": ["Chandelles", "Lazy Eights", "Steep Spirals", "Eights on Pylons", "Power-Off 180"],
-      "Operations": ["Short Field Takeoff & Landing", "Soft Field Takeoff & Landing", "Emergency Descent"],
+      "Preflight Preparation": [
+        "Pilot Qualifications",
+        "Airworthiness Requirements",
+        "Weather Information",
+        "Cross-Country Flight Planning",
+        "National Airspace System",
+        "Performance and Limitations",
+        "Operation of Systems",
+        "Human Factors",
+      ],
+      "Navigation": [
+        "Pilotage and Dead Reckoning",
+        "Navigation Systems and Radar Services",
+        "Diversion",
+        "Lost Procedures",
+        "Navigation Log and Flight Plan Completion",
+      ],
+      "Slow Flight and Stalls": [
+        "Maneuvering During Slow Flight",
+        "Power-Off Stalls",
+        "Power-On Stalls",
+        "Accelerated Stalls",
+        "Spin Awareness",
+      ],
+      "Performance and Ground Reference Maneuvers": [
+        "Steep Turns",
+        "Lazy Eights",
+        "Eights-On-Pylons",
+        "Steep Spiral",
+        "Chandelles",
+      ],
+      "Takeoffs, Landings, and Go-Arounds": [
+        "Soft-Field Takeoff and Climb",
+        "Soft-Field Approach and Landing",
+        "Short-Field Takeoff and Maximum Performance Climb",
+        "Short-Field Approach and Landing",
+        "Power-Off 180° Accuracy Approach and Landing",
+        "Go-Around/Rejected Landing",
+      ],
+      "Postflight Debriefing": [
+        "Critique maneuvers/procedures and SRM.",
+        "Create a plan for skills that need improvement.",
+        "Update the training record and logbook.",
+      ],
+      "Postflight Procedures": [
+        "After Landing, Parking, and Securing",
+      ],
+      "Emergency Operations": [
+        "Systems and Equipment Malfunctions",
+        "Emergency Descent",
+        "Emergency Approach and Landing (Simulated)",
+        "Emergency Equipment and Survival Gear",
+      ],
     },
   },
   CFII: {
     "Stage 1": {
-      "Teaching Fundamentals": ["FOI — Principles of Learning", "Scenario-Based Training", "Lesson Planning"],
-      "Teaching Procedures": ["Teaching Holding Procedures", "Teaching Partial Panel", "Teaching Unusual Attitudes"],
-      "CRM": ["CRM & Risk Management", "PAVE / 5P Checklist", "Student Assessment Techniques"],
+      "ATC Clearances and Procedures": [
+        "Clearance Copying and Readback",
+        "Compliance with ATC Clearances — Departure, Enroute, Arrival, Approach",
+        "Holding Procedures",
+      ],
+      "Preflight Procedures": [
+        "GPS Programming",
+        "VOR Equipment Operation",
+      ],
+      "Instrument Approach Procedures (Full and Partial Panel)": [
+        "Instrument Cockpit Check",
+        "Air Traffic Control Clearances",
+        "Compliance with Departure, En Route, and Arrival Procedures and Clearances",
+        "Straight and Level Flight",
+        "Turns",
+        "Change of Airspeed in Straight and Level and Turning Flight",
+        "Constant Airspeed Climbs and Descents",
+        "Timed Turns to Magnetic Compass Headings",
+        "Steep Turns",
+        "Recovery from Unusual Flight Attitudes",
+        "Intercepting and Tracking Navigational Systems",
+        "DME Arcs",
+        "Holding Procedures",
+        "Non-precision Instrument Approach",
+        "Precision Instrument Approach",
+        "Missed Approach",
+        "Circling Approach",
+        "Landing from a Straight-In Approach",
+        "Checklist Use",
+      ],
+      "Emergency Operations": [
+        "No-Gyro Radar Vectoring and Approach Procedures",
+        "Partial-Panel Approach Procedures",
+        "Loss of Communications",
+        "Systems and Equipment Malfunctions",
+        "Approach with Loss of Primary Flight Instrument Indicators",
+      ],
     },
     "Stage 2": {
-      "Teaching Approaches": ["Teaching ILS Approach", "Teaching RNAV Approach", "Teaching VOR Approach"],
-      "Evaluation": ["Evaluating Checkride Readiness", "Endorsements & Logbook", "Student Assessment Techniques"],
-      "Lesson Delivery": ["Lesson Planning", "Scenario-Based Training", "FOI — Principles of Learning"],
+      "Preflight Briefing": [
+        "Student-led briefing on the plan of action for the flight.",
+      ],
+      "Maneuvers Review": [
+        "Instrument Cockpit Check",
+        "Air Traffic Control Clearances",
+        "Compliance with Departure, En Route, and Arrival Procedures and Clearances",
+        "Straight and Level Flight",
+        "Turns",
+        "Change of Airspeed in Straight and Level and Turning Flight",
+        "Constant Airspeed Climbs and Descents",
+        "Timed Turns to Magnetic Compass Headings",
+        "Steep Turns",
+        "Recovery from Unusual Flight Attitudes",
+        "Intercepting and Tracking Navigational Systems",
+        "DME Arcs",
+        "Holding Procedures",
+        "Non-precision Instrument Approach",
+        "Precision Instrument Approach",
+        "Missed Approach",
+        "Circling Approach",
+        "Landing from a Straight-In Approach",
+        "Loss of Communications",
+        "Approach with Loss of Primary Flight Instrument Indicators",
+      ],
     },
   },
 };
 
+// Shared snippet categories for the Notes tool. Every training type starts
+// with the same three stored categories in this order: Maneuvers → Takeoffs
+// → Landings. The ✈ Approach builder is the always-present first tab and is
+// NOT a stored category — it's a special tab handled by the NotesSection
+// component itself. Storage is still per-training-type so each can be
+// customized separately.
+const SHARED_SNIPPETS = {
+  "Maneuvers": ["Maneuvering During Slow Flight","Power-Off Stalls","Power-On Stalls","Accelerated Stalls","Spin Awareness","Steep Turns","Chandelles","Lazy Eights","Eights-On-Pylons","Steep Spiral","Emergency Descent"],
+  "Takeoffs": ["Normal Takeoff and Climb","Soft-Field Takeoff and Climb","Short-Field Takeoff and Maximum Performance Climb"],
+  "Landings": ["Normal Approach and Landing","Soft-Field Approach and Landing","Short-Field Approach and Landing","Power-Off 180 Accuracy Approach and Landing","Go-Around/Rejected Landing"],
+};
 const DEFAULT_SNIPPETS = {
-  IRA: {
-    "Approaches": ["Established on final — descend to ___ ft","Activate Vectors to Final in the GTN","Brief the approach plate before top of descent","Verify ATIS and set minimums before approach","Stabilized by 500 ft AGL — otherwise go around","Cross-check raw data with GPS guidance"],
-    "Holds": ["Use Triple Wind Correction in high winds","Determine hold entry (direct/teardrop/parallel)","Time inbound leg — adjust outbound for wind","Report entering hold to ATC"],
-    "Avionics": ["Disconnect AP before minimums","Verify GPS is in approach mode","Cross-check HSI with raw ILS needle"],
-    "Feedback": ["Good scan technique","Work on altitude control during level-offs","Excellent CRM","Verbalize your thoughts during the approach"],
-  },
-  CAX: {
-    "Maneuvers": ["Chandelle — watch torque on rollout","Lazy Eight — coordination at top of arc","Steep spiral — constant bank and airspeed","Eights on pylons — pivotal altitude check","Power-off 180 — aim point discipline"],
-    "Systems": ["Gear down — 3 green confirmed","Prop control — full forward before power","Mixture — lean for cruise","GUMPS check before landing"],
-    "Landings": ["Power-off 180 — good key position","Short field — hit the numbers","Soft field — keep nose up","Watch for floating on long approaches"],
-    "Feedback": ["Excellent smoothness","Work on clearing turns","Good altitude awareness","Review ACS tolerances"],
-  },
-  CFII: {
-    "Teaching": ["Good use of tell-show-do","Let student make the error before correcting","Ask leading questions","Demonstrate once, hand controls back"],
-    "Lesson Delivery": ["Lesson objective was clear","Good use of silence","Strong ground debrief","Use more 'what would you do if...' questions"],
-    "Assessment": ["Ready for IPC sign-off","Needs more practice before checkride","Demonstrates good cockpit discipline","Self-corrected — sign of growth"],
-    "Feedback": ["Instruction was clear and concise","Watch over-controlling during demo","Good job staying ahead of student"],
-  },
+  IRA:  SHARED_SNIPPETS,
+  CAX:  SHARED_SNIPPETS,
+  CFII: SHARED_SNIPPETS,
 };
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
@@ -249,6 +519,43 @@ function SectionLabel({ children, style }) {
 
 // ─── Student Selector ────────────────────────────────────────────────────────
 
+// ─── Credit Badge ─────────────────────────────────────────────────────────────
+// Reusable footer badge shown on the main pages (Student Selector + Lesson
+// page) but skipped on secondary screens (History, Settings, etc.). Sits at
+// the natural bottom of the page content — only visible when the user
+// scrolls to the very end, like a traditional footer.
+function CreditBadge() {
+  return (
+    <div style={{
+      maxWidth: 580,
+      marginLeft: "auto", marginRight: "auto",
+      marginTop: 24,
+      marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+      padding: "12px 16px",
+      borderRadius: 14,
+      background: THEME.surface,
+      border: `1px solid ${THEME.border}`,
+      display: "flex", alignItems: "center", gap: 12,
+    }}>
+      {/* Claude logo (Anthropic's mark) */}
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="#D97757" xmlns="http://www.w3.org/2000/svg" aria-label="Claude" style={{ flexShrink: 0 }}>
+        <path d="M4.709 15.955l4.72-2.647.079-.23-.079-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.448.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.146-.103.018-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76.564-.34 2.205-1.064 1.353-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/>
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 12, fontWeight: 600,
+          color: THEME.text, letterSpacing: -0.1,
+          fontFamily: FONT_TEXT, lineHeight: 1.3,
+        }}>Developed by Caleb Sanders</div>
+        <div style={{
+          fontSize: 11, color: THEME.textSecondary,
+          fontFamily: FONT_TEXT, marginTop: 1, letterSpacing: -0.1,
+        }}>AI Powered by Claude</div>
+      </div>
+    </div>
+  );
+}
+
 function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
   const [students, setStudents] = useState(() => ls.get("cfi_students", []));
   const [showNew, setShowNew] = useState(false);
@@ -291,7 +598,7 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(110px + env(safe-area-inset-bottom, 0px))" }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
       {/* Branding header */}
       <div style={{ padding: "max(44px, calc(env(safe-area-inset-top, 0px) + 20px)) 24px 28px", textAlign: "center" }}>
         <div style={{
@@ -518,39 +825,7 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
       </div>
 
       {/* Credit badge — fixed at bottom of screen */}
-      <div style={{
-        position: "fixed",
-        bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)",
-        left: 16, right: 16,
-        zIndex: 30,
-        maxWidth: 580,
-        marginLeft: "auto", marginRight: "auto",
-        padding: "12px 16px",
-        borderRadius: 14,
-        background: "rgba(20,20,22,0.92)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        border: `1px solid ${THEME.border}`,
-        display: "flex", alignItems: "center", gap: 12,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-      }}>
-        {/* Claude logo (Anthropic's mark) */}
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="#D97757" xmlns="http://www.w3.org/2000/svg" aria-label="Claude" style={{ flexShrink: 0 }}>
-          <path d="M4.709 15.955l4.72-2.647.079-.23-.079-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.448.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.146-.103.018-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76.564-.34 2.205-1.064 1.353-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/>
-        </svg>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 12, fontWeight: 600,
-            color: THEME.text, letterSpacing: -0.1,
-            fontFamily: FONT_TEXT, lineHeight: 1.3,
-          }}>Developed by Caleb Sanders</div>
-          <div style={{
-            fontSize: 11, color: THEME.textSecondary,
-            fontFamily: FONT_TEXT, marginTop: 1, letterSpacing: -0.1,
-          }}>AI Powered by Claude</div>
-        </div>
-      </div>
+      <CreditBadge />
     </div>
   );
 }
@@ -1812,11 +2087,11 @@ function ApproachBuilder({ onInsert, editMode }) {
 
 function NotesSection({ trainingType, notes, setNotes }) {
   const snippetKey = `cfi_snippets_${trainingType}`;
-  const favKey = `cfi_favs_${trainingType}`;
 
   const [snippets, setSnippets] = useState(() => ls.get(snippetKey, DEFAULT_SNIPPETS[trainingType]));
-  const [favorites, setFavorites] = useState(() => ls.get(favKey, []));
-  const [activeGroup, setActiveGroup] = useState("Favorites");
+  // Default the active tab to "Approach" (the always-present approach builder tab).
+  // It's the most commonly used and is always available regardless of training type.
+  const [activeGroup, setActiveGroup] = useState("Approach");
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [customNote, setCustomNote] = useState("");
@@ -1846,18 +2121,14 @@ function NotesSection({ trainingType, notes, setNotes }) {
   const [confirmRemoveNote, setConfirmRemoveNote] = useState(null); // note index
   const [confirmRemoveSub, setConfirmRemoveSub] = useState(null); // { noteIdx, subIdx }
 
-  const groups = ["Favorites", "Approach", ...Object.keys(snippets)];
+  const groups = ["Approach", ...Object.keys(snippets)];
   const isApproachTab = activeGroup === "Approach";
-  const activeList = activeGroup === "Favorites" ? favorites : (snippets[activeGroup] || []);
+  const activeList = snippets[activeGroup] || [];
 
   // Normalize: notes can be strings (legacy) or {text, subs} objects
   function noteText(n) { return typeof n === "string" ? n : n.text; }
   function noteSubs(n) { return typeof n === "string" ? [] : (n.subs || []); }
 
-  function toggleFav(text) {
-    const next = favorites.includes(text) ? favorites.filter(f => f !== text) : [...favorites, text];
-    setFavorites(next); ls.set(favKey, next);
-  }
   function addNote(text, isApproach = false) { setNotes(n => [...n, { text, subs: [], isApproach }]); }
   function removeNote(i) { setNotes(n => n.filter((_, idx) => idx !== i)); }
   function moveNote(fromIdx, toIdx) {
@@ -1877,26 +2148,72 @@ function NotesSection({ trainingType, notes, setNotes }) {
   // 2. User drags up/down → we calculate which note they're hovering over
   // 3. User releases → we move the dragged note to that position
   function getNoteIndexAtY(clientY) {
-    // Find the note that the cursor is closest to (by center point)
-    // This handles both dragging up and down, including whitespace between items
-    let closestIdx = null;
-    let closestDistance = Infinity;
+    // Find which note position the user's finger is currently over.
+    // CRITICAL: the dragging note has a transform applied (translateY + scale)
+    // so its getBoundingClientRect() reports a SHIFTED position. We must
+    // subtract that transform to get its stable, "original" position, otherwise
+    // hit-testing breaks when dragging downward (the dragged row's rect moves
+    // into the slot below, fooling the algorithm).
+    const entries = Object.entries(noteRefsRef.current)
+      .filter(([, el]) => !!el)
+      .map(([idxStr, el]) => {
+        const idx = parseInt(idxStr, 10);
+        const rect = el.getBoundingClientRect();
+        // Undo the visual offset on the dragging note so its rect represents
+        // where it *would* be if it weren't being dragged.
+        if (idx === draggingIdx) {
+          return {
+            idx,
+            rect: {
+              top: rect.top - dragY,
+              bottom: rect.bottom - dragY,
+            },
+          };
+        }
+        return { idx, rect };
+      })
+      .sort((a, b) => a.rect.top - b.rect.top);
+    if (entries.length === 0) return null;
 
-    Object.entries(noteRefsRef.current).forEach(([idxStr, el]) => {
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const centerY = (rect.top + rect.bottom) / 2;
-      const distance = Math.abs(clientY - centerY);
+    // Above the first note: snap to first
+    if (clientY < entries[0].rect.top) return entries[0].idx;
+    // Below the last note: snap to last
+    const last = entries[entries.length - 1];
+    if (clientY > last.rect.bottom) return last.idx;
 
-      // Only consider items that are close enough (within 2x the item height)
-      const itemHeight = rect.bottom - rect.top;
-      if (distance < itemHeight * 1.5 && distance < closestDistance) {
-        closestDistance = distance;
-        closestIdx = parseInt(idxStr, 10);
+    // Inside or between notes: find the row whose vertical range contains the cursor.
+    // Fall back to the closest center if we're in a tiny gap between rows.
+    let containing = null;
+    let closest = null;
+    let closestDist = Infinity;
+    for (const e of entries) {
+      if (clientY >= e.rect.top && clientY <= e.rect.bottom) {
+        containing = e.idx;
+        break;
       }
-    });
-
-    return closestIdx;
+      const center = (e.rect.top + e.rect.bottom) / 2;
+      const dist = Math.abs(clientY - center);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = e.idx;
+      }
+    }
+    let target = containing != null ? containing : closest;
+    // Never return the dragging note's index — pick an adjacent one instead so
+    // the user always sees a drop indicator while dragging.
+    if (target === draggingIdx) {
+      // Pick the next-closest note that ISN'T the dragging one
+      let alt = null;
+      let altDist = Infinity;
+      for (const e of entries) {
+        if (e.idx === draggingIdx) continue;
+        const center = (e.rect.top + e.rect.bottom) / 2;
+        const dist = Math.abs(clientY - center);
+        if (dist < altDist) { altDist = dist; alt = e.idx; }
+      }
+      target = alt != null ? alt : target;
+    }
+    return target;
   }
 
   function startLongPress(idx, clientY, e) {
@@ -2015,23 +2332,13 @@ function NotesSection({ trainingType, notes, setNotes }) {
     setCustomNote("");
   }
   function saveSnippetEdit(group, idx, val) {
-    const old = snippets[group][idx];
     const updated = { ...snippets, [group]: snippets[group].map((s, i) => i === idx ? val : s) };
     setSnippets(updated); ls.set(snippetKey, updated);
-    if (favorites.includes(old)) {
-      const nf = favorites.map(f => f === old ? val : f);
-      setFavorites(nf); ls.set(favKey, nf);
-    }
     setEditingIdx(null);
   }
   function deleteSnippet(group, idx) {
-    const text = snippets[group][idx];
     const updated = { ...snippets, [group]: snippets[group].filter((_, i) => i !== idx) };
     setSnippets(updated); ls.set(snippetKey, updated);
-    if (favorites.includes(text)) {
-      const nf = favorites.filter(f => f !== text);
-      setFavorites(nf); ls.set(favKey, nf);
-    }
   }
   function addSnippetToGroup(group) {
     if (!newSnippetVal.trim()) return;
@@ -2059,7 +2366,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
     const updated = { ...snippets };
     delete updated[name];
     setSnippets(updated); ls.set(snippetKey, updated);
-    if (activeGroup === name) setActiveGroup("Favorites");
+    if (activeGroup === name) setActiveGroup("Approach");
   }
   function addCategory() {
     const trimmed = newCategoryName.trim();
@@ -2118,7 +2425,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
             {groups.map(g => {
               const isActive = activeGroup === g;
               const isEditingThis = editingCategory === g;
-              const isProtected = g === "Favorites" || g === "Approach";
+              const isProtected = g === "Approach";
               const canEdit = editMode && !isProtected;
 
               if (isEditingThis) {
@@ -2157,7 +2464,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
                       fontSize: 13, fontWeight: 500, cursor: "pointer",
                       fontFamily: FONT_TEXT, whiteSpace: "nowrap",
                     }}>
-                    {g === "Favorites" ? "⭐ Favorites" : g === "Approach" ? "✈ Approach" : g}
+                    {g === "Approach" ? "✈ Approach" : g}
                     {canEdit && isActive && <span style={{ marginLeft: 6, opacity: 0.85, fontSize: 11 }}>✎</span>}
                   </button>
                   {canEdit && (
@@ -2220,13 +2527,12 @@ function NotesSection({ trainingType, notes, setNotes }) {
           <div style={{ padding: "0 16px 14px" }}>
             {activeList.length === 0 && (
               <div style={{ color: THEME.textTertiary, fontSize: 14, fontStyle: "italic", padding: "12px 4px", fontFamily: FONT_TEXT }}>
-                {activeGroup === "Favorites" ? "Tap ⭐ on any snippet to favorite it" : "No snippets yet"}
+                No snippets yet
               </div>
             )}
             {activeList.map((s, i) => {
-              const group = activeGroup === "Favorites" ? null : activeGroup;
-              const realIdx = group ? snippets[group].indexOf(s) : -1;
-              const isFav = favorites.includes(s);
+              const group = activeGroup;
+              const realIdx = snippets[group] ? snippets[group].indexOf(s) : -1;
               const isEditing = editMode && editingIdx === i && group;
 
               return (
@@ -2248,11 +2554,6 @@ function NotesSection({ trainingType, notes, setNotes }) {
                     </>
                   ) : (
                     <>
-                      <button onClick={() => toggleFav(s)} style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        fontSize: 17, padding: "4px", flexShrink: 0,
-                        opacity: isFav ? 1 : 0.28, transition: "opacity 0.15s", lineHeight: 1,
-                      }}>⭐</button>
                       <button onClick={() => editMode && group ? (() => { setEditingIdx(i); setEditVal(s); })() : addNote(s)} style={{
                         flex: 1,
                         background: THEME.surface2, border: `1px solid ${THEME.border}`,
@@ -2260,10 +2561,8 @@ function NotesSection({ trainingType, notes, setNotes }) {
                         fontSize: 14, padding: "10px 13px",
                         cursor: "pointer", textAlign: "left",
                         fontFamily: FONT_TEXT, lineHeight: 1.4,
-                        transition: "all 0.12s",
-                      }}
-                        onMouseEnter={e => !editMode && (e.currentTarget.style.borderColor = THEME.red, e.currentTarget.style.background = THEME.redDim)}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = THEME.border, e.currentTarget.style.background = THEME.surface2)}>
+                        WebkitTapHighlightColor: "transparent",
+                      }}>
                         {s}
                       </button>
                       {editMode && group && (
@@ -2286,7 +2585,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
               );
             })}
 
-            {editMode && activeGroup !== "Favorites" && activeGroup !== "Approach" && (
+            {editMode && activeGroup !== "Approach" && (
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                 <input value={newSnippetVal} onChange={e => setNewSnippetVal(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && addSnippetToGroup(activeGroup)}
@@ -3647,7 +3946,7 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(100px + env(safe-area-inset-bottom, 0px))" }}>
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
       {/* iOS-style large title nav */}
       <div style={{
         position: "sticky", top: 0, zIndex: 50,
@@ -3832,6 +4131,7 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
           </Card>
         )}
       </div>
+      <CreditBadge />
     </div>
   );
 }
