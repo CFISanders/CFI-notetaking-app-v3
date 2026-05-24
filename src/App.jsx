@@ -422,15 +422,20 @@ const MASTER_TOPICS = {
 };
 
 // Shared snippet categories for the Notes tool. Every training type starts
-// with the same three stored categories in this order: Maneuvers → Takeoffs
-// → Landings. The ✈ Approach builder is the always-present first tab and is
-// NOT a stored category — it's a special tab handled by the NotesSection
-// component itself. Storage is still per-training-type so each can be
-// customized separately.
+// with the same four stored categories in this order: Maneuvers → Takeoffs
+// → Landings → Memory Items. The ✈ Approach builder is the always-present
+// first tab and is NOT a stored category — it's a special tab handled by
+// the NotesSection component itself. Storage is still per-training-type so
+// each can be customized separately.
 const SHARED_SNIPPETS = {
-  "Maneuvers": ["Maneuvering During Slow Flight","Power-Off Stalls","Power-On Stalls","Accelerated Stalls","Spin Awareness","Steep Turns","Chandelles","Lazy Eights","Eights-On-Pylons","Steep Spiral","Emergency Descent"],
+  "Maneuvers": ["Slow Flight","Power-Off Stalls","Power-On Stalls","Accelerated Stalls","Spin Awareness","Steep Turns","Chandelles","Lazy Eights","Eights-On-Pylons","Steep Spiral","Emergency Descent"],
   "Takeoffs": ["Normal Takeoff and Climb","Soft-Field Takeoff and Climb","Short-Field Takeoff and Maximum Performance Climb"],
   "Landings": ["Normal Approach and Landing","Soft-Field Approach and Landing","Short-Field Approach and Landing","Power-Off 180 Accuracy Approach and Landing","Go-Around/Rejected Landing"],
+  "Memory Items": [
+    "ICC: Attitude Indicator — Blue over brown ±5 pitch. Airspeed — 0. Outside air temperature — check. Altimeter — ±75 feet of field elevation when set to local altimeter setting. VSI — Reading 0; if not, whatever is portrayed becomes our new zero. Slip/skid — Should be level, but no greater than 5 degrees of bank. RAIM and WAAS — Check. During taxi — Check for known heading on HSI, and make sure the brick swings to the outside of the turn. Cross-reference with standby instruments: Altimeter — within 50 feet. Heading — within 6 degrees.",
+    "The 5 C's: Cram Climb Clean Click Call",
+    "Approaching an Airport Flow: (ABBCC) ATIS BUILD BRIEF CALL CHECKLIST",
+  ],
 };
 const DEFAULT_SNIPPETS = {
   IRA:  SHARED_SNIPPETS,
@@ -519,6 +524,41 @@ function SectionLabel({ children, style }) {
 
 // ─── Student Selector ────────────────────────────────────────────────────────
 
+// ─── Beta Banner ──────────────────────────────────────────────────────────────
+// Prominent banner shown at the top of in-development tools (XC Planner,
+// Weather Minimums) to make it very clear they are NOT for primary flight
+// decisions. The visual treatment is intentionally loud — red border, red
+// badge, explicit "do not rely on" language — because aviation safety isn't a
+// place for soft disclaimers buried in fine print.
+function BetaBanner() {
+  return (
+    <div style={{
+      background: `${THEME.red}18`,
+      border: `1.5px solid ${THEME.red}`,
+      borderRadius: 12,
+      padding: "12px 14px",
+      marginBottom: 18,
+      display: "flex", alignItems: "flex-start", gap: 10,
+    }}>
+      <div style={{
+        background: THEME.red, color: "#fff",
+        fontSize: 10, fontWeight: 800, letterSpacing: 1,
+        padding: "3px 7px", borderRadius: 4,
+        fontFamily: FONT_MONO, lineHeight: 1.2,
+        flexShrink: 0, marginTop: 1,
+      }}>BETA</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: THEME.red, letterSpacing: -0.2, lineHeight: 1.3, marginBottom: 3, fontFamily: FONT_TEXT }}>
+          Testing only — do not use for actual flight decisions
+        </div>
+        <div style={{ fontSize: 12, color: THEME.textSecondary, lineHeight: 1.45, fontFamily: FONT_TEXT }}>
+          This tool is in active development and has not been verified for accuracy. Always rely on official sources (FAR/AIM, current FAA publications, weather briefings, your chief instructor) for go/no-go decisions.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Credit Badge ─────────────────────────────────────────────────────────────
 // Reusable footer badge shown on the main pages (Student Selector + Lesson
 // page) but skipped on secondary screens (History, Settings, etc.). Sits at
@@ -556,7 +596,7 @@ function CreditBadge() {
   );
 }
 
-function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
+function StudentSelector({ onSelect, onViewHistory, onOpenDayNight, onOpenXCPlanner, onOpenWxMins, onOpenArchive }) {
   const [students, setStudents] = useState(() => ls.get("cfi_students", []));
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
@@ -746,7 +786,7 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
         {!showNew && (
           <button onClick={onOpenDayNight} style={{
             width: "100%", padding: "13px",
-            borderRadius: 12, marginBottom: 20,
+            borderRadius: 12, marginBottom: 10,
             background: THEME.surface, border: `1px solid ${THEME.border}`,
             color: THEME.text, fontSize: 15, fontWeight: 500,
             cursor: "pointer", fontFamily: FONT_TEXT,
@@ -757,6 +797,75 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 18 }}>🌅</span>
               <span>Day / Night Calculator</span>
+            </span>
+            <span style={{ color: THEME.textQuaternary, fontSize: 17 }}>›</span>
+          </button>
+        )}
+
+        {!showNew && (
+          <button onClick={onOpenXCPlanner} style={{
+            width: "100%", padding: "13px",
+            borderRadius: 12, marginBottom: 10,
+            background: THEME.surface, border: `1px solid ${THEME.border}`,
+            color: THEME.text, fontSize: 15, fontWeight: 500,
+            cursor: "pointer", fontFamily: FONT_TEXT,
+            letterSpacing: -0.2,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 10,
+          }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>✈️</span>
+              <span>XC Planner</span>
+              <span style={{
+                background: THEME.red, color: "#fff",
+                fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
+                padding: "2px 6px", borderRadius: 4,
+                fontFamily: FONT_MONO, lineHeight: 1.2,
+              }}>BETA</span>
+            </span>
+            <span style={{ color: THEME.textQuaternary, fontSize: 17 }}>›</span>
+          </button>
+        )}
+
+        {!showNew && (
+          <button onClick={onOpenWxMins} style={{
+            width: "100%", padding: "13px",
+            borderRadius: 12, marginBottom: 10,
+            background: THEME.surface, border: `1px solid ${THEME.border}`,
+            color: THEME.text, fontSize: 15, fontWeight: 500,
+            cursor: "pointer", fontFamily: FONT_TEXT,
+            letterSpacing: -0.2,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 10,
+          }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>⛅</span>
+              <span>Weather Minimums</span>
+              <span style={{
+                background: THEME.red, color: "#fff",
+                fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
+                padding: "2px 6px", borderRadius: 4,
+                fontFamily: FONT_MONO, lineHeight: 1.2,
+              }}>BETA</span>
+            </span>
+            <span style={{ color: THEME.textQuaternary, fontSize: 17 }}>›</span>
+          </button>
+        )}
+
+        {!showNew && (
+          <button onClick={onOpenArchive} style={{
+            width: "100%", padding: "13px",
+            borderRadius: 12, marginBottom: 20,
+            background: THEME.surface, border: `1px solid ${THEME.border}`,
+            color: THEME.text, fontSize: 15, fontWeight: 500,
+            cursor: "pointer", fontFamily: FONT_TEXT,
+            letterSpacing: -0.2,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 10,
+          }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🗂️</span>
+              <span>Lesson Archive</span>
             </span>
             <span style={{ color: THEME.textQuaternary, fontSize: 17 }}>›</span>
           </button>
@@ -799,8 +908,8 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
                   </div>
                   {confirmDelete === s.id ? (
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => del(s.id)} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 11px", cursor: "pointer" }}>Delete</button>
-                      <button onClick={() => setConfirmDelete(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "6px 11px", cursor: "pointer" }}>Cancel</button>
+                      <button onClick={() => del(s.id)} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Delete</button>
+                      <button onClick={() => setConfirmDelete(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 13, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Cancel</button>
                     </div>
                   ) : (
                     <>
@@ -808,13 +917,14 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight }) {
                         <button onClick={() => onViewHistory(s)} title="View past lessons" style={{
                           background: "transparent",
                           border: `1px solid ${THEME.border}`,
-                          borderRadius: 8, color: THEME.textSecondary,
+                          borderRadius: 9, color: THEME.textSecondary,
                           fontSize: 13, fontWeight: 500,
-                          padding: "6px 10px", cursor: "pointer",
+                          padding: "9px 14px", cursor: "pointer",
                           fontFamily: FONT_TEXT, flexShrink: 0,
+                          minHeight: 38,
                         }}>History</button>
                       )}
-                      <button onClick={() => setConfirmDelete(s.id)} style={{ background: "transparent", border: "none", color: THEME.textQuaternary, fontSize: 20, cursor: "pointer", padding: "4px 4px", lineHeight: 1, flexShrink: 0 }}>×</button>
+                      <button onClick={() => setConfirmDelete(s.id)} aria-label="Delete student" style={{ background: "transparent", border: "none", color: THEME.textQuaternary, fontSize: 20, cursor: "pointer", padding: "10px 12px", lineHeight: 1, flexShrink: 0 }}>×</button>
                     </>
                   )}
                 </div>
@@ -1004,7 +1114,7 @@ function HobbsSection({ data, setData }) {
 
 // ─── Topic Picker ─────────────────────────────────────────────────────────────
 
-function TopicPicker({ trainingType, stage, topics, setTopics, checked, setChecked }) {
+function TopicPicker({ trainingType, stage, topics, setTopics, checked, setChecked, notes, setNotes }) {
   // Storage key is per training-type + stage so each combo has its own categorized topic map.
   // Value format: { "Category Name": ["Topic 1", "Topic 2"], ... }
   const masterKey = stage ? `cfi_topics_${trainingType}_${stage}` : `cfi_topics_${trainingType}`;
@@ -1055,6 +1165,51 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
   const [pendingPreset, setPendingPreset] = useState(null);
   // Topic about to be deleted from the picked list — shows inline Delete/Cancel buttons
   const [confirmRemoveTopic, setConfirmRemoveTopic] = useState(null);
+  // Reorder mode: when true, picked-topic rows show ▲▼ buttons and hide the
+  // × / + / checkmark controls so the user can focus on reordering. Toggled
+  // from a "Reorder" button in the header, exited via "Done."
+  const [reorderMode, setReorderMode] = useState(false);
+
+  // Move a picked topic up or down in the order. `dir` is -1 (up) or +1 (down).
+  // Bounds-checked so the first row's ▲ and the last row's ▼ are no-ops.
+  function moveTopic(idx, dir) {
+    const targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= topics.length) return;
+    const next = [...topics];
+    [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+    setTopics(next);
+  }
+  // Topic that just had its "+" tapped while already in notes — briefly flashes
+  // to give visual feedback ("already added") without an alert dialog.
+  const [flashedTopic, setFlashedTopic] = useState(null);
+
+  // Notes are normalized: either strings (legacy) or { text, subs, isApproach } objects.
+  // Helper to extract the visible text consistently across both shapes.
+  function _noteText(n) { return typeof n === "string" ? n : (n?.text || ""); }
+
+  // Check whether a topic already exists as a note. Compared case-insensitive
+  // and trimmed so subtle whitespace differences don't cause duplicates.
+  function isTopicInNotes(topic) {
+    if (!Array.isArray(notes)) return false;
+    const target = topic.trim().toLowerCase();
+    return notes.some(n => _noteText(n).trim().toLowerCase() === target);
+  }
+
+  // Add a topic to notes as a new entry with empty sub-bullets ready to fill in.
+  // If the topic is already there, flash the row instead and don't duplicate.
+  function addTopicToNotes(topic) {
+    if (!setNotes) return; // safety: parent didn't wire notes through
+    if (isTopicInNotes(topic)) {
+      // Already exists — flash the row briefly
+      setFlashedTopic(topic);
+      setTimeout(() => setFlashedTopic(prev => prev === topic ? null : prev), 900);
+      return;
+    }
+    setNotes(n => [...(n || []), { text: topic, subs: [], isApproach: false }]);
+    // Also flash so the user sees confirmation of success
+    setFlashedTopic(topic);
+    setTimeout(() => setFlashedTopic(prev => prev === topic ? null : prev), 900);
+  }
 
   function savePresets(next) {
     setPresets(next);
@@ -1211,7 +1366,18 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
               fontFamily: FONT_TEXT,
             }}>{editMaster ? "Done" : "Edit"}</button>
           )}
-          <button onClick={() => { setOpen(o => !o); if (open) { setEditMaster(false); setShowAddCategory(false); setEditingCategory(null); } }} style={{
+          {/* Reorder mode toggle — only when the picker is collapsed (not open)
+              and there are at least 2 topics to reorder. Hidden in edit-master
+              mode to avoid stacking too many actions in the header. */}
+          {!open && topics.length >= 2 && (
+            <button onClick={() => { setReorderMode(r => !r); setConfirmRemoveTopic(null); }} style={{
+              background: "transparent", border: "none",
+              color: reorderMode ? THEME.red : THEME.textSecondary,
+              fontSize: 15, fontWeight: 500, cursor: "pointer", padding: "4px 0",
+              fontFamily: FONT_TEXT,
+            }}>{reorderMode ? "Done" : "Reorder"}</button>
+          )}
+          <button onClick={() => { setOpen(o => !o); if (open) { setEditMaster(false); setShowAddCategory(false); setEditingCategory(null); } else { setReorderMode(false); } }} style={{
             background: "transparent", border: "none",
             color: THEME.red, fontSize: 15, fontWeight: 500,
             cursor: "pointer", fontFamily: FONT_TEXT, padding: "4px 0",
@@ -1316,17 +1482,17 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
                       <button onClick={() => moveCategory(idx, -1)} disabled={idx === 0} aria-label="Move category up" style={{
                         background: "transparent", border: "none",
                         color: idx === 0 ? THEME.textQuaternary : THEME.text,
-                        fontSize: 10, fontWeight: 700,
+                        fontSize: 11, fontWeight: 700,
                         cursor: idx === 0 ? "default" : "pointer",
-                        padding: "8px 3px 8px 6px", lineHeight: 1, opacity: idx === 0 ? 0.3 : 0.8,
+                        padding: "10px 8px", lineHeight: 1, opacity: idx === 0 ? 0.3 : 0.8,
                         fontFamily: FONT_MONO,
                       }}>▲</button>
                       <button onClick={() => moveCategory(idx, 1)} disabled={idx === categoryNames.length - 1} aria-label="Move category down" style={{
                         background: "transparent", border: "none",
                         color: idx === categoryNames.length - 1 ? THEME.textQuaternary : THEME.text,
-                        fontSize: 10, fontWeight: 700,
+                        fontSize: 11, fontWeight: 700,
                         cursor: idx === categoryNames.length - 1 ? "default" : "pointer",
-                        padding: "8px 3px", lineHeight: 1, opacity: idx === categoryNames.length - 1 ? 0.3 : 0.8,
+                        padding: "10px 8px", lineHeight: 1, opacity: idx === categoryNames.length - 1 ? 0.3 : 0.8,
                         fontFamily: FONT_MONO,
                       }}>▼</button>
                     </>
@@ -1499,7 +1665,7 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
                               color: idx === 0 ? THEME.textQuaternary : THEME.text,
                               fontSize: 11, fontWeight: 700,
                               cursor: idx === 0 ? "default" : "pointer",
-                              padding: "5px 9px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
+                              padding: "8px 12px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
                               fontFamily: FONT_MONO, flexShrink: 0,
                             }}>▲</button>
                             <button onClick={() => movePreset(idx, 1)} disabled={idx === presets.length - 1} aria-label="Move down" style={{
@@ -1508,29 +1674,29 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
                               color: idx === presets.length - 1 ? THEME.textQuaternary : THEME.text,
                               fontSize: 11, fontWeight: 700,
                               cursor: idx === presets.length - 1 ? "default" : "pointer",
-                              padding: "5px 9px", lineHeight: 1, opacity: idx === presets.length - 1 ? 0.4 : 1,
+                              padding: "8px 12px", lineHeight: 1, opacity: idx === presets.length - 1 ? 0.4 : 1,
                               fontFamily: FONT_MONO, flexShrink: 0,
                             }}>▼</button>
                             <button onClick={() => { setEditingPresetId(p.id); setEditingPresetName(p.name); }} aria-label="Rename" style={{
                               background: "transparent", border: `0.5px solid ${THEME.border}`,
                               borderRadius: 6, color: THEME.textSecondary,
                               fontSize: 11, fontWeight: 600,
-                              padding: "5px 9px", cursor: "pointer", fontFamily: FONT_TEXT,
+                              padding: "8px 12px", cursor: "pointer", fontFamily: FONT_TEXT,
                               flexShrink: 0,
                             }}>Edit</button>
                             <button onClick={() => deletePreset(p.id)} aria-label="Delete" style={{
                               background: "transparent", border: `0.5px solid ${THEME.red}40`,
                               borderRadius: 6, color: THEME.red,
-                              fontSize: 14, lineHeight: 1, padding: "5px 9px",
+                              fontSize: 14, lineHeight: 1, padding: "8px 12px",
                               cursor: "pointer", flexShrink: 0,
                             }}>×</button>
                           </>
                         ) : (
                           <button onClick={() => setPendingPreset(p)} style={{
                             background: THEME.red, border: "none", borderRadius: 8,
-                            color: "#fff", fontSize: 12, fontWeight: 600,
-                            padding: "6px 12px", cursor: "pointer", fontFamily: FONT_TEXT,
-                            flexShrink: 0, letterSpacing: -0.1,
+                            color: "#fff", fontSize: 13, fontWeight: 600,
+                            padding: "10px 16px", cursor: "pointer", fontFamily: FONT_TEXT,
+                            flexShrink: 0, letterSpacing: -0.1, minHeight: 36,
                           }}>Load</button>
                         )}
                       </div>
@@ -1659,33 +1825,93 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
               display: "flex", alignItems: "center", gap: 12,
               padding: "11px 16px",
               borderBottom: i < topics.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
-              opacity: checked[t] ? 0.45 : 1,
+              opacity: !reorderMode && checked[t] ? 0.45 : 1,
               transition: "opacity 0.2s",
             }}>
-              <button onClick={() => toggleCheck(t)} style={{
-                width: 22, height: 22, borderRadius: 11,
-                border: checked[t] ? "none" : `1.5px solid ${THEME.textQuaternary}`,
-                background: checked[t] ? THEME.green : "transparent",
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, transition: "all 0.15s", padding: 0,
-              }}>
-                {checked[t] && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
-              </button>
-              <span style={{
-                flex: 1, fontSize: 15, color: THEME.text, fontFamily: FONT_TEXT,
-                textDecoration: checked[t] ? "line-through" : "none",
-                letterSpacing: -0.2,
-              }}>{t}</span>
-              {confirmRemoveTopic === t ? (
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => { toggle(t); setConfirmRemoveTopic(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 11px", cursor: "pointer" }}>Delete</button>
-                  <button onClick={() => setConfirmRemoveTopic(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "6px 11px", cursor: "pointer" }}>Cancel</button>
+              {/* Reorder mode: ▲▼ arrows on the LEFT. Otherwise the check circle. */}
+              {reorderMode ? (
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => moveTopic(i, -1)} disabled={i === 0} aria-label="Move up" style={{
+                    background: i === 0 ? "transparent" : THEME.surface2,
+                    border: `1px solid ${THEME.border}`, borderRadius: 7,
+                    color: i === 0 ? THEME.textQuaternary : THEME.text,
+                    fontSize: 11, fontWeight: 700,
+                    cursor: i === 0 ? "default" : "pointer",
+                    padding: "8px 12px", lineHeight: 1, opacity: i === 0 ? 0.4 : 1,
+                    fontFamily: FONT_MONO,
+                  }}>▲</button>
+                  <button onClick={() => moveTopic(i, 1)} disabled={i === topics.length - 1} aria-label="Move down" style={{
+                    background: i === topics.length - 1 ? "transparent" : THEME.surface2,
+                    border: `1px solid ${THEME.border}`, borderRadius: 7,
+                    color: i === topics.length - 1 ? THEME.textQuaternary : THEME.text,
+                    fontSize: 11, fontWeight: 700,
+                    cursor: i === topics.length - 1 ? "default" : "pointer",
+                    padding: "8px 12px", lineHeight: 1, opacity: i === topics.length - 1 ? 0.4 : 1,
+                    fontFamily: FONT_MONO,
+                  }}>▼</button>
                 </div>
               ) : (
-                <button onClick={() => setConfirmRemoveTopic(t)} style={{
-                  background: "transparent", border: "none", color: THEME.textQuaternary,
-                  cursor: "pointer", fontSize: 19, padding: "0 4px", lineHeight: 1,
-                }}>×</button>
+                <button onClick={() => toggleCheck(t)} style={{
+                  width: 22, height: 22, borderRadius: 11,
+                  border: checked[t] ? "none" : `1.5px solid ${THEME.textQuaternary}`,
+                  background: checked[t] ? THEME.green : "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, transition: "all 0.15s", padding: 0,
+                }}>
+                  {checked[t] && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </button>
+              )}
+              <span style={{
+                flex: 1, fontSize: 15, color: THEME.text, fontFamily: FONT_TEXT,
+                textDecoration: !reorderMode && checked[t] ? "line-through" : "none",
+                letterSpacing: -0.2,
+              }}>{t}</span>
+              {/* + and × controls hidden in reorder mode for clarity. */}
+              {!reorderMode && (
+                <>
+                  {/* "+" button: adds this topic as a new note. If the topic is
+                      already in notes, the button briefly flashes grey ("already
+                      there") instead of duplicating. If it was just added, it
+                      flashes green ("✓") as confirmation. No popup, no toast. */}
+                  {confirmRemoveTopic !== t && setNotes && (() => {
+                    const inNotes = isTopicInNotes(t);
+                    const isFlashing = flashedTopic === t;
+                    // Default appearance (not flashing): subtle grey + when already in notes,
+                    // slightly more prominent when not yet added.
+                    const baseBorder = inNotes ? THEME.separator : THEME.border;
+                    const baseColor = inNotes ? THEME.textQuaternary : THEME.textSecondary;
+                    // Flash appearance: green ring if newly added, grey ring if dup
+                    const flashBorder = inNotes ? THEME.textTertiary : THEME.green;
+                    const flashColor = inNotes ? THEME.textSecondary : THEME.green;
+                    return (
+                      <button onClick={() => addTopicToNotes(t)} aria-label={inNotes ? "Already in notes" : "Add to notes"} title={inNotes ? "Already in notes" : "Add to notes"} style={{
+                        background: THEME.surface2,
+                        border: `1px solid ${isFlashing ? flashBorder : baseBorder}`,
+                        borderRadius: 8,
+                        color: isFlashing ? flashColor : baseColor,
+                        cursor: "pointer", fontSize: 14, fontWeight: 700,
+                        padding: "4px 10px", lineHeight: 1, flexShrink: 0,
+                        transition: "all 0.18s",
+                        transform: isFlashing ? "scale(1.08)" : "scale(1)",
+                        fontFamily: FONT_TEXT,
+                      }}>{isFlashing ? "✓" : "+"}</button>
+                    );
+                  })()}
+                  {confirmRemoveTopic === t ? (
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => { toggle(t); setConfirmRemoveTopic(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Delete</button>
+                      <button onClick={() => setConfirmRemoveTopic(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 13, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Cancel</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmRemoveTopic(t)} aria-label="Remove topic" style={{
+                      background: "transparent", border: "none", color: THEME.textQuaternary,
+                      cursor: "pointer", fontSize: 19, padding: "10px 12px", lineHeight: 1, flexShrink: 0,
+                      // Expanded padding gives a ~44px-tall hit area without changing
+                      // the visual size of the × glyph itself — critical for accurate
+                      // tapping in a moving cockpit.
+                    }}>×</button>
+                  )}
+                </>
               )}
             </div>
           ))}
@@ -1698,11 +1924,1309 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
 // ─── Approach Builder ────────────────────────────────────────────────────────
 
 // Approach types config — some have minimums options, some don't
+// ─── Cross-Country Planner Data ────────────────────────────────────────────────
+// Each required XC at Thrust has specific syllabus requirements. This data
+// drives the standalone XC Planner tool which lets the user verify a planned
+// flight meets all requirements before committing.
+//
+// Each XC is a list of "checks" the planned flight must satisfy. Some checks
+// are auto-evaluated from the planning fields (distance, time, day/night),
+// others are manual toggles the user confirms (e.g. "Power-Off 180s practiced
+// during landings"). Manual checks are flagged with `manual: true`.
+const XC_REQUIREMENTS = {
+  CAX: [
+    {
+      id: "cax-dual-day-100",
+      label: "Dual Day 100 NM XC",
+      syllabusRef: "FL 4 — Stage 1, Dual",
+      example: "KADS → KCLL → KADS",
+      notes: "One leg must be >100 NM straight-line from original departure point.",
+      checks: [
+        { id: "time",    label: "Total flight time ≥ 2.0 hours",            field: "time",     op: "gte", value: 2.0,  unit: "hr" },
+        { id: "leg100",  label: "Furthest leg ≥ 100 NM straight-line",      field: "farthest", op: "gte", value: 100,  unit: "NM" },
+        { id: "day",     label: "Conducted in daytime",                     manual: true },
+        { id: "dual",    label: "Flown dual (with instructor)",             manual: true },
+      ],
+    },
+    {
+      id: "cax-dual-night-100",
+      label: "Dual Night 100 NM XC",
+      syllabusRef: "FL 5 — Stage 1, Dual",
+      example: "KADS → KCLL → KADS (return leg at night)",
+      notes: "Same 100 NM requirement as day XC, but conducted at night.",
+      checks: [
+        { id: "time",    label: "Total flight time ≥ 2.0 hours",            field: "time",     op: "gte", value: 2.0,  unit: "hr" },
+        { id: "leg100",  label: "Furthest leg ≥ 100 NM straight-line",      field: "farthest", op: "gte", value: 100,  unit: "NM" },
+        { id: "night",   label: "Conducted at night (or return leg night)", manual: true },
+        { id: "dual",    label: "Flown dual (with instructor)",             manual: true },
+      ],
+    },
+    {
+      id: "cax-solo-300",
+      label: "Solo 300 NM XC",
+      syllabusRef: "FL 8 — Stage 1, Supervised Solo",
+      example: "KADS → KLBB → KAFW → KADS",
+      notes: "Thrust recommends first landing >250 NM straight-line to simplify. May be combined with FL 9 night T/Os & landings at a 24/7 towered airport (e.g. KAFW).",
+      checks: [
+        { id: "totalDist", label: "Total distance ≥ 300 NM",                  field: "total",    op: "gte", value: 300,  unit: "NM" },
+        { id: "stops3",    label: "Landings at ≥ 3 different points",         field: "stops",    op: "gte", value: 3,    unit: "" },
+        { id: "seg250",    label: "One segment ≥ 250 NM straight-line",       field: "farthest", op: "gte", value: 250,  unit: "NM" },
+        { id: "solo",      label: "Flown solo (supervised)",                  manual: true },
+        { id: "po180",     label: "≥ 5 of 10 takeoffs/landings as Power-Off 180s (if combined w/ FL 9)", manual: true, optional: true },
+      ],
+    },
+    {
+      id: "cax-solo-xc",
+      label: "Solo Cross-Country (FL 10)",
+      syllabusRef: "FL 10 — Stage 1, Supervised Solo",
+      example: "KADS → KTYR → KADS",
+      notes: "Must be a valid XC — landing at a point >50 NM from original departure.",
+      checks: [
+        { id: "leg50", label: "One landing ≥ 50 NM from departure", field: "farthest", op: "gte", value: 50, unit: "NM" },
+        { id: "solo",  label: "Flown solo (supervised)",            manual: true },
+      ],
+    },
+  ],
+  IRA: [
+    {
+      id: "ira-141-250",
+      label: "Part 141 IFR XC (250 NM)",
+      syllabusRef: "FL 26 — Stage 3",
+      example: "KADS → KOKC → KADS (with 3 different approach types)",
+      notes: "Per FAA Letter of Interpretation for §141 App. D. Thrust says keep close to 250 NM to save checkride prep time. Log under FL 26 as a single lesson — do NOT split.",
+      checks: [
+        { id: "totalDist", label: "Total distance ≥ 250 NM round trip",      field: "total",    op: "gte", value: 250, unit: "NM" },
+        { id: "leg100",    label: "One landing ≥ 100 NM straight-line",      field: "farthest", op: "gte", value: 100, unit: "NM" },
+        { id: "approaches3", label: "3 different types of approaches",       field: "approaches", op: "gte", value: 3, unit: "" },
+      ],
+    },
+    {
+      id: "ira-61-250",
+      label: "Part 61 IFR XC (250 NM, §61.65)",
+      syllabusRef: "Part 61 §61.65 — Alternative path",
+      example: "KADS → KTYR → KADS",
+      notes: "For Part 61 students only (typically finishing a rating from elsewhere). Different from 141 in that the leg requirement is only 50 NM.",
+      checks: [
+        { id: "totalDist", label: "Total distance ≥ 250 NM round trip",      field: "total",    op: "gte", value: 250, unit: "NM" },
+        { id: "leg50",     label: "One landing ≥ 50 NM straight-line",       field: "farthest", op: "gte", value: 50,  unit: "NM" },
+        { id: "approaches3", label: "3 different types of approaches",       field: "approaches", op: "gte", value: 3, unit: "" },
+      ],
+    },
+  ],
+};
+
+// ─── XC Planner Tool ──────────────────────────────────────────────────────────
+// Standalone tool accessible from the home page. Not tied to a student or
+// lesson — purely a planning utility to verify a planned cross-country meets
+// the Thrust syllabus / FAR requirements before flying it.
+function XCPlanner({ onBack }) {
+  // Wizard state: "training" (pick IRA/CAX), "select" (pick which XC), "plan" (checklist)
+  const [step, setStep] = useState("training");
+  const [trainingType, setTrainingType] = useState(null);
+  const [xcDef, setXcDef] = useState(null);
+
+  // Planning fields — manually entered by user (from ForeFlight, planning, etc.)
+  const [departure, setDeparture] = useState("");
+  const [stops, setStops] = useState(""); // intermediate stops, comma-separated
+  const [farthest, setFarthest] = useState(""); // furthest leg straight-line distance in NM
+  const [totalDist, setTotalDist] = useState(""); // total trip distance in NM
+  const [estTime, setEstTime] = useState(""); // est. flight time in hours
+  const [approaches, setApproaches] = useState(""); // count of approach types (IRA only)
+
+  // Manual check toggles — keyed by check id
+  const [manualChecks, setManualChecks] = useState({});
+
+  function resetPlan() {
+    setDeparture(""); setStops(""); setFarthest(""); setTotalDist("");
+    setEstTime(""); setApproaches(""); setManualChecks({});
+  }
+
+  function resetAll() {
+    setStep("training"); setTrainingType(null); setXcDef(null); resetPlan();
+  }
+
+  // Evaluate a single check against current planning fields
+  function evalCheck(check) {
+    if (check.manual) return !!manualChecks[check.id];
+    const fieldMap = {
+      time: parseFloat(estTime) || 0,
+      farthest: parseFloat(farthest) || 0,
+      total: parseFloat(totalDist) || 0,
+      stops: parseInt(stops.split(",").filter(s => s.trim()).length, 10) + 1, // stops + departure
+      approaches: parseInt(approaches, 10) || 0,
+    };
+    const val = fieldMap[check.field];
+    if (check.op === "gte") return val >= check.value;
+    return false;
+  }
+
+  function checkValueDisplay(check) {
+    if (check.manual) return null;
+    const fieldMap = {
+      time: parseFloat(estTime) || 0,
+      farthest: parseFloat(farthest) || 0,
+      total: parseFloat(totalDist) || 0,
+      stops: stops.trim() ? parseInt(stops.split(",").filter(s => s.trim()).length, 10) + 1 : 1,
+      approaches: parseInt(approaches, 10) || 0,
+    };
+    const v = fieldMap[check.field];
+    if (!v && v !== 0) return null;
+    return `${v}${check.unit ? " " + check.unit : ""}`;
+  }
+
+  // ─── Step 1: pick training type ───────────────────────────────────────────
+  if (step === "training") {
+    return (
+      <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{
+          position: "sticky", top: 0, zIndex: 50,
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          borderBottom: `0.5px solid ${THEME.separator}`,
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}>
+          <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+            <button onClick={onBack} style={{
+              background: "transparent", border: "none", color: THEME.red,
+              fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>‹ Back</button>
+          </div>
+        </div>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, margin: "12px 0 6px", fontFamily: FONT_TEXT }}>XC Planner</h1>
+          <p style={{ color: THEME.textSecondary, fontSize: 14, margin: "0 0 18px", lineHeight: 1.5, fontFamily: FONT_TEXT }}>
+            Verify a planned cross-country meets all Thrust syllabus requirements before flying it.
+          </p>
+          <BetaBanner />
+          <SectionLabel>Training Type</SectionLabel>
+          <Card style={{ padding: 6 }}>
+            {["CAX", "IRA"].map(tt => (
+              <button key={tt} onClick={() => { setTrainingType(tt); setStep("select"); }} style={{
+                width: "100%", background: "transparent", border: "none",
+                padding: "14px 12px", textAlign: "left", cursor: "pointer",
+                color: THEME.text, fontSize: 16, fontFamily: FONT_TEXT,
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                borderBottom: tt === "CAX" ? `0.5px solid ${THEME.separator}` : "none",
+              }}>
+                <span>
+                  <div style={{ fontWeight: 600, letterSpacing: -0.2 }}>{TRAINING_TYPES[tt].label}</div>
+                  <div style={{ fontSize: 12, color: THEME.textTertiary, marginTop: 2 }}>{XC_REQUIREMENTS[tt].length} required XC flight{XC_REQUIREMENTS[tt].length === 1 ? "" : "s"}</div>
+                </span>
+                <span style={{ color: THEME.textTertiary, fontSize: 18 }}>›</span>
+              </button>
+            ))}
+          </Card>
+          <div style={{ fontSize: 11, color: THEME.textTertiary, marginTop: 12, fontStyle: "italic", lineHeight: 1.5, fontFamily: FONT_TEXT, padding: "0 4px" }}>
+            CFII has no required XCs in the syllabus. PPL not yet supported.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Step 2: pick which XC ────────────────────────────────────────────────
+  if (step === "select") {
+    const list = XC_REQUIREMENTS[trainingType] || [];
+    return (
+      <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{
+          position: "sticky", top: 0, zIndex: 50,
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          borderBottom: `0.5px solid ${THEME.separator}`,
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}>
+          <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+            <button onClick={() => setStep("training")} style={{
+              background: "transparent", border: "none", color: THEME.red,
+              fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>‹ Training Type</button>
+          </div>
+        </div>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, margin: "12px 0 6px", fontFamily: FONT_TEXT }}>
+            {trainingType} — Pick XC
+          </h1>
+          <p style={{ color: THEME.textSecondary, fontSize: 14, margin: "0 0 18px", fontFamily: FONT_TEXT }}>
+            Which required cross-country are you planning?
+          </p>
+          <BetaBanner />
+          <SectionLabel>Required XCs</SectionLabel>
+          <Card style={{ padding: 6 }}>
+            {list.map((xc, i) => (
+              <button key={xc.id} onClick={() => { setXcDef(xc); setStep("plan"); }} style={{
+                width: "100%", background: "transparent", border: "none",
+                padding: "14px 12px", textAlign: "left", cursor: "pointer",
+                color: THEME.text, fontSize: 16, fontFamily: FONT_TEXT,
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                borderBottom: i < list.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                gap: 12,
+              }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, letterSpacing: -0.2, lineHeight: 1.25 }}>{xc.label}</div>
+                  <div style={{ fontSize: 11, color: THEME.textTertiary, marginTop: 3, fontFamily: FONT_MONO }}>{xc.syllabusRef}</div>
+                </span>
+                <span style={{ color: THEME.textTertiary, fontSize: 18, flexShrink: 0 }}>›</span>
+              </button>
+            ))}
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Step 3: checklist + planning fields ──────────────────────────────────
+  const xc = xcDef;
+  const allChecks = xc.checks;
+  // Required checks (excludes optional) for the green/red status
+  const requiredChecks = allChecks.filter(c => !c.optional);
+  const passCount = requiredChecks.filter(c => evalCheck(c)).length;
+  const allPass = passCount === requiredChecks.length;
+  const usesField = (field) => allChecks.some(c => !c.manual && c.field === field);
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <button onClick={() => { setStep("select"); resetPlan(); }} style={{
+              background: "transparent", border: "none", color: THEME.red,
+              fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>‹ XCs</button>
+            <button onClick={resetPlan} style={{
+              background: "transparent", border: "none", color: THEME.textSecondary,
+              fontSize: 14, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>Reset</button>
+          </div>
+        </div>
+      </div>
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5, margin: "8px 0 4px", fontFamily: FONT_TEXT, lineHeight: 1.2 }}>{xc.label}</h1>
+        <div style={{ fontSize: 12, color: THEME.textTertiary, fontFamily: FONT_MONO, marginBottom: 16 }}>{xc.syllabusRef}</div>
+
+        <BetaBanner />
+        {/* Status banner */}
+        <div style={{
+          padding: "12px 14px", borderRadius: 12, marginBottom: 16,
+          background: allPass ? "#15351F" : `${THEME.red}15`,
+          border: `1px solid ${allPass ? "#3DA85B" : THEME.red}50`,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>
+            {allPass ? "✅" : "⚠️"}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, color: allPass ? "#65D886" : THEME.red, letterSpacing: -0.2 }}>
+              {allPass ? "All requirements met" : `${passCount} of ${requiredChecks.length} requirements met`}
+            </div>
+            <div style={{ fontSize: 11, color: THEME.textSecondary, marginTop: 1 }}>
+              {allPass ? "This planned flight satisfies the syllabus." : "Fill the fields below to verify."}
+            </div>
+          </div>
+        </div>
+
+        {/* Notes from the syllabus */}
+        {xc.notes && (
+          <div style={{
+            padding: "10px 12px", marginBottom: 18,
+            background: THEME.surface2, borderRadius: 10,
+            border: `0.5px solid ${THEME.border}`,
+            fontSize: 12, color: THEME.textSecondary, lineHeight: 1.5,
+            fontFamily: FONT_TEXT,
+          }}>
+            <span style={{ fontWeight: 600, color: THEME.text }}>From the syllabus: </span>{xc.notes}
+            {xc.example && (
+              <div style={{ marginTop: 6, color: THEME.textTertiary, fontSize: 11, fontFamily: FONT_MONO }}>
+                Example: {xc.example}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Planning fields */}
+        <SectionLabel>Planning</SectionLabel>
+        <Card style={{ padding: 14, marginBottom: 18 }}>
+          <PlanField label="Departure" value={departure} onChange={setDeparture} placeholder="e.g. KADS" mono />
+          <PlanField label="Intermediate stops" value={stops} onChange={setStops} placeholder="comma-separated, e.g. KLBB, KAFW" mono />
+          {usesField("farthest") && (
+            <PlanField label="Furthest leg (straight-line)" value={farthest} onChange={setFarthest} placeholder="NM" suffix="NM" numeric />
+          )}
+          {usesField("total") && (
+            <PlanField label="Total distance" value={totalDist} onChange={setTotalDist} placeholder="NM" suffix="NM" numeric />
+          )}
+          {usesField("time") && (
+            <PlanField label="Estimated flight time" value={estTime} onChange={setEstTime} placeholder="hours" suffix="hr" numeric />
+          )}
+          {usesField("approaches") && (
+            <PlanField label="Different approach types" value={approaches} onChange={setApproaches} placeholder="3" numeric />
+          )}
+        </Card>
+
+        {/* Requirements checklist */}
+        <SectionLabel>Requirements</SectionLabel>
+        <Card style={{ padding: 6, marginBottom: 18 }}>
+          {allChecks.map((check, i) => {
+            const passed = evalCheck(check);
+            const valStr = checkValueDisplay(check);
+            return (
+              <div key={check.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px",
+                borderBottom: i < allChecks.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                cursor: check.manual ? "pointer" : "default",
+              }} onClick={() => {
+                if (check.manual) {
+                  setManualChecks(prev => ({ ...prev, [check.id]: !prev[check.id] }));
+                }
+              }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: 11, flexShrink: 0,
+                  background: passed ? "#3DA85B" : "transparent",
+                  border: `1.5px solid ${passed ? "#3DA85B" : THEME.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#fff", fontSize: 13, fontWeight: 700,
+                  transition: "all 0.15s",
+                }}>{passed ? "✓" : ""}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, color: THEME.text, lineHeight: 1.35, letterSpacing: -0.1 }}>
+                    {check.label}
+                    {check.optional && (
+                      <span style={{ marginLeft: 6, fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_MONO, fontWeight: 600, letterSpacing: 0.5 }}>OPTIONAL</span>
+                    )}
+                  </div>
+                  {valStr !== null && (
+                    <div style={{ fontSize: 11, color: passed ? "#65D886" : THEME.textTertiary, marginTop: 2, fontFamily: FONT_MONO }}>
+                      You entered: {valStr}
+                    </div>
+                  )}
+                  {check.manual && (
+                    <div style={{ fontSize: 10, color: THEME.textTertiary, marginTop: 2, fontStyle: "italic", letterSpacing: 0.2 }}>
+                      Tap to confirm
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+
+        <div style={{ fontSize: 11, color: THEME.textTertiary, marginTop: 4, fontStyle: "italic", lineHeight: 1.6, fontFamily: FONT_TEXT, padding: "0 4px" }}>
+          This tool is a planning aid only. Always verify against the current FAR/AIM, Thrust course guide, and your chief instructor before flight.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Inline field component for the XC Planner — labeled input with optional suffix
+function PlanField({ label, value, onChange, placeholder, suffix, mono, numeric }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: THEME.textSecondary, letterSpacing: 0.3, textTransform: "uppercase", fontWeight: 600, marginBottom: 4, fontFamily: FONT_TEXT }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input
+          value={value}
+          onChange={e => onChange(mono ? e.target.value.toUpperCase() : e.target.value)}
+          placeholder={placeholder}
+          inputMode={numeric ? "decimal" : "text"}
+          style={{
+            flex: 1, background: THEME.bg, border: `1px solid ${THEME.border}`,
+            borderRadius: 9, padding: "9px 12px",
+            color: THEME.text, fontSize: 15,
+            fontFamily: mono ? FONT_MONO : FONT_TEXT,
+            outline: "none",
+            letterSpacing: mono ? 0.5 : -0.2,
+          }}
+        />
+        {suffix && (
+          <div style={{ fontSize: 12, color: THEME.textTertiary, fontFamily: FONT_MONO, flexShrink: 0, minWidth: 22 }}>{suffix}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Weather Minimums Tool ────────────────────────────────────────────────────
+// Standalone tool: pulls live METAR data and compares against user-defined
+// personal minimums profiles. Helps a CFI quickly decide if conditions meet
+// the limits they (or their student) have set for themselves.
+//
+// Personal minimum profiles are stored in localStorage under cfi_min_profiles.
+// Each profile has a name + the individual limit fields. Users can save
+// multiple profiles (their own, "Student pre-solo", "XC-ready", etc.) and
+// pick which one to use for a given comparison.
+
+// Default starter profile — added on first load if none exist.
+const DEFAULT_MIN_PROFILE = {
+  id: "default",
+  name: "My Personal Minimums",
+  ceilingFt: 1500,      // minimum ceiling in feet AGL
+  visibilitySM: 5,      // minimum visibility in statute miles
+  maxWindKt: 25,        // max steady wind in knots
+  maxGustKt: 30,        // max gust in knots
+  maxCrosswindKt: 15,   // max crosswind component in knots
+  dayOnly: false,       // refuse night ops
+};
+
+function newProfileId() {
+  return "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+}
+
+// Parse METAR JSON from aviationweather.gov.
+// The API returns an array of observations; we use the most recent one.
+// Returns null if parsing fails or no data.
+function parseMetarData(metarJson) {
+  if (!metarJson || !Array.isArray(metarJson) || metarJson.length === 0) return null;
+  const m = metarJson[0]; // most recent
+  // The API uses null/empty for missing data
+  const result = {
+    raw: m.rawOb || m.rawMETAR || "",
+    icao: m.icaoId || "",
+    observed: m.obsTime ? new Date(m.obsTime * 1000) : null,
+    windDir: typeof m.wdir === "number" ? m.wdir : (m.wdir === "VRB" ? "VRB" : null),
+    windKt: typeof m.wspd === "number" ? m.wspd : null,
+    gustKt: typeof m.wgst === "number" && m.wgst > 0 ? m.wgst : null,
+    visibilitySM: null,
+    tempC: typeof m.temp === "number" ? m.temp : null,
+    dewpointC: typeof m.dewp === "number" ? m.dewp : null,
+    altimInHg: typeof m.altim === "number" ? m.altim / 33.8639 : null, // mb → inHg
+    // Ceiling: lowest BKN or OVC layer
+    ceilingFt: null,
+    // All cloud layers for display
+    clouds: [],
+  };
+  // Visibility — the API gives statute miles as a number, possibly "10+" string
+  if (m.visib != null) {
+    if (typeof m.visib === "number") result.visibilitySM = m.visib;
+    else if (typeof m.visib === "string") {
+      // "10+" → 10, "1 1/4" → 1.25, "1/2" → 0.5
+      const s = m.visib.replace("+", "").trim();
+      if (s.includes("/")) {
+        const parts = s.split(" ");
+        let total = 0;
+        for (const p of parts) {
+          if (p.includes("/")) {
+            const [n, d] = p.split("/").map(Number);
+            if (d) total += n / d;
+          } else {
+            total += parseFloat(p) || 0;
+          }
+        }
+        result.visibilitySM = total;
+      } else {
+        result.visibilitySM = parseFloat(s);
+      }
+    }
+  }
+  // Clouds — API returns array like [{cover: "BKN", base: 1200}, ...]
+  if (Array.isArray(m.clouds)) {
+    for (const c of m.clouds) {
+      if (c && c.cover) {
+        result.clouds.push({ cover: c.cover, baseFt: c.base });
+        // Ceiling is the lowest BKN or OVC layer
+        if ((c.cover === "BKN" || c.cover === "OVC" || c.cover === "VV") && c.base != null) {
+          if (result.ceilingFt === null || c.base < result.ceilingFt) {
+            result.ceilingFt = c.base;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// Compute crosswind component given runway heading (degrees, e.g. 16 → 160°)
+// and wind direction + speed. Returns absolute crosswind in knots.
+function crosswindComponent(runwayHeadingDeg, windDirDeg, windSpeedKt) {
+  if (windDirDeg == null || windSpeedKt == null) return null;
+  const angleDeg = Math.abs(((windDirDeg - runwayHeadingDeg + 540) % 360) - 180);
+  const angleRad = (angleDeg * Math.PI) / 180;
+  return Math.abs(windSpeedKt * Math.sin(angleRad));
+}
+
+// Find the runway most favored by current wind from a list of available runways.
+// runways is an array of strings like ["16", "34", "13L", "31R"].
+// Returns the runway designator with the lowest headwind-relative angle.
+function favoredRunway(runways, windDirDeg) {
+  if (!Array.isArray(runways) || runways.length === 0 || windDirDeg == null) return null;
+  let best = null;
+  let bestAngle = Infinity;
+  for (const r of runways) {
+    const num = parseInt(r, 10);
+    if (isNaN(num)) continue;
+    const headingDeg = num * 10;
+    const angle = Math.abs(((windDirDeg - headingDeg + 540) % 360) - 180);
+    if (angle < bestAngle) {
+      bestAngle = angle;
+      best = r;
+    }
+  }
+  return best;
+}
+
+function WeatherMinimums({ onBack }) {
+  // Profiles state — persisted to localStorage
+  const PROFILES_KEY = "cfi_min_profiles";
+  const [profiles, setProfiles] = useState(() => {
+    const saved = ls.get(PROFILES_KEY, null);
+    if (saved && Array.isArray(saved) && saved.length > 0) return saved;
+    return [DEFAULT_MIN_PROFILE];
+  });
+  function saveProfiles(next) {
+    setProfiles(next);
+    ls.set(PROFILES_KEY, next);
+  }
+
+  // View state: "list" (profile picker), "compare" (weather check), "edit" (profile editor)
+  const [view, setView] = useState("list");
+  const [activeProfileId, setActiveProfileId] = useState(null);
+  const [editingProfile, setEditingProfile] = useState(null);
+
+  // Comparison state
+  const [airport, setAirport] = useState("");
+  const [metarData, setMetarData] = useState(null);
+  const [metarError, setMetarError] = useState(null);
+  const [fetching, setFetching] = useState(false);
+  const [selectedRunway, setSelectedRunway] = useState("");
+
+  // Re-use the airport history from the Approach Builder
+  const [airportHistory] = useState(() => ls.get("cfi_airports_used", []));
+  const [airportRunways] = useState(() => ls.get("cfi_airport_runways", {}));
+
+  const activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0];
+
+  // ─── METAR fetch ─────────────────────────────────────────────────────────
+  // Calls our own Vercel serverless function at /api/metar, which fetches
+  // METAR data server-side and returns it to the browser. This eliminates the
+  // CORS problem entirely — same-origin requests don't have CORS restrictions.
+  //
+  // Requires the file /api/metar.js to exist in the Vercel project (see
+  // accompanying instructions). Until that file is deployed, this will return
+  // 404 / "not found" errors, which is the signal that the function isn't
+  // installed yet.
+  async function fetchMetar(code) {
+    setFetching(true);
+    setMetarError(null);
+    setMetarData(null);
+    try {
+      // eslint-disable-next-line no-console
+      console.log(`[wxmins] fetching /api/metar?id=${code}`);
+      const res = await fetch(`/api/metar?id=${encodeURIComponent(code)}`, {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+      });
+      if (res.status === 404) {
+        throw new Error("The /api/metar function isn't deployed yet. See setup instructions.");
+      }
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Server returned HTTP ${res.status}. ${body.slice(0, 100)}`);
+      }
+      const json = await res.json();
+      const parsed = parseMetarData(json);
+      if (!parsed) {
+        setMetarError(`No METAR data for ${code}. This airport may not have a weather station.`);
+        setFetching(false);
+        return;
+      }
+      setMetarData(parsed);
+      // Auto-select favored runway based on wind direction
+      const known = airportRunways[code] || [];
+      if (known.length > 0 && typeof parsed.windDir === "number") {
+        const fav = favoredRunway(known, parsed.windDir);
+        if (fav) setSelectedRunway(fav);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[wxmins] fetch failed:", err);
+      setMetarError(err.message || "Unknown error");
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  // ─── Comparison logic ───────────────────────────────────────────────────
+  // Each check returns { label, status: "pass" | "fail" | "info", detail }
+  function buildChecks() {
+    if (!metarData || !activeProfile) return [];
+    const p = activeProfile;
+    const m = metarData;
+    const checks = [];
+
+    // Ceiling
+    if (m.ceilingFt != null) {
+      checks.push({
+        label: "Ceiling",
+        limit: `≥ ${p.ceilingFt} ft AGL`,
+        actual: `${m.ceilingFt} ft AGL`,
+        status: m.ceilingFt >= p.ceilingFt ? "pass" : "fail",
+      });
+    } else {
+      checks.push({
+        label: "Ceiling",
+        limit: `≥ ${p.ceilingFt} ft AGL`,
+        actual: "No ceiling reported",
+        status: "pass",
+        note: "Sky clear or only scattered/few layers",
+      });
+    }
+
+    // Visibility
+    if (m.visibilitySM != null) {
+      checks.push({
+        label: "Visibility",
+        limit: `≥ ${p.visibilitySM} SM`,
+        actual: `${m.visibilitySM} SM`,
+        status: m.visibilitySM >= p.visibilitySM ? "pass" : "fail",
+      });
+    }
+
+    // Steady wind
+    if (m.windKt != null) {
+      checks.push({
+        label: "Wind (steady)",
+        limit: `≤ ${p.maxWindKt} kt`,
+        actual: `${m.windKt} kt`,
+        status: m.windKt <= p.maxWindKt ? "pass" : "fail",
+      });
+    }
+
+    // Gust
+    if (m.gustKt != null) {
+      checks.push({
+        label: "Wind gusts",
+        limit: `≤ ${p.maxGustKt} kt`,
+        actual: `${m.gustKt} kt`,
+        status: m.gustKt <= p.maxGustKt ? "pass" : "fail",
+      });
+    }
+
+    // Crosswind — only if we have a runway selected and wind direction
+    if (selectedRunway && typeof m.windDir === "number" && m.windKt != null) {
+      const rwNum = parseInt(selectedRunway, 10);
+      if (!isNaN(rwNum)) {
+        const headingDeg = rwNum * 10;
+        // Use gust for the worst-case crosswind if available, else steady
+        const xwSteady = crosswindComponent(headingDeg, m.windDir, m.windKt);
+        const xwGust = m.gustKt != null ? crosswindComponent(headingDeg, m.windDir, m.gustKt) : null;
+        const xwWorst = xwGust != null ? xwGust : xwSteady;
+        if (xwWorst != null) {
+          checks.push({
+            label: `Crosswind RWY ${selectedRunway}`,
+            limit: `≤ ${p.maxCrosswindKt} kt`,
+            actual: xwGust != null
+              ? `${xwSteady.toFixed(0)}–${xwGust.toFixed(0)} kt`
+              : `${xwSteady.toFixed(0)} kt`,
+            status: xwWorst <= p.maxCrosswindKt ? "pass" : "fail",
+          });
+        }
+      }
+    }
+
+    return checks;
+  }
+
+  const checks = buildChecks();
+  const failCount = checks.filter(c => c.status === "fail").length;
+  const allPass = checks.length > 0 && failCount === 0;
+
+  // ─── Profile editor handlers ────────────────────────────────────────────
+  function startEditProfile(p) {
+    setEditingProfile({ ...p });
+    setView("edit");
+  }
+  function startNewProfile() {
+    setEditingProfile({
+      id: newProfileId(),
+      name: "",
+      ceilingFt: 1500,
+      visibilitySM: 5,
+      maxWindKt: 25,
+      maxGustKt: 30,
+      maxCrosswindKt: 15,
+      dayOnly: false,
+    });
+    setView("edit");
+  }
+  function saveEditedProfile() {
+    if (!editingProfile) return;
+    const name = editingProfile.name.trim();
+    if (!name) return;
+    const existing = profiles.find(p => p.id === editingProfile.id);
+    let next;
+    if (existing) {
+      next = profiles.map(p => p.id === editingProfile.id ? editingProfile : p);
+    } else {
+      next = [...profiles, editingProfile];
+    }
+    saveProfiles(next);
+    setEditingProfile(null);
+    setView("list");
+  }
+  function deleteProfile(id) {
+    if (profiles.length === 1) {
+      window.alert("You must keep at least one profile.");
+      return;
+    }
+    const p = profiles.find(x => x.id === id);
+    if (!p) return;
+    if (!window.confirm(`Delete profile "${p.name}"?`)) return;
+    saveProfiles(profiles.filter(x => x.id !== id));
+  }
+
+  // ─── Render: profile list ───────────────────────────────────────────────
+  if (view === "list") {
+    return (
+      <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{
+          position: "sticky", top: 0, zIndex: 50,
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          borderBottom: `0.5px solid ${THEME.separator}`,
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}>
+          <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+            <button onClick={onBack} style={{
+              background: "transparent", border: "none", color: THEME.red,
+              fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>‹ Back</button>
+          </div>
+        </div>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, margin: "12px 0 6px", fontFamily: FONT_TEXT }}>Weather Minimums</h1>
+          <p style={{ color: THEME.textSecondary, fontSize: 14, margin: "0 0 18px", lineHeight: 1.5, fontFamily: FONT_TEXT }}>
+            Compare current METAR weather against your personal minimums. Pick a profile to use.
+          </p>
+          <BetaBanner />
+
+          <SectionLabel>Profiles</SectionLabel>
+          <Card style={{ padding: 6, marginBottom: 12 }}>
+            {profiles.map((p, i) => (
+              <div key={p.id} style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "12px 12px",
+                borderBottom: i < profiles.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+              }}>
+                <button onClick={() => { setActiveProfileId(p.id); setView("compare"); setMetarData(null); setMetarError(null); }} style={{
+                  flex: 1, background: "transparent", border: "none",
+                  padding: 0, textAlign: "left", cursor: "pointer",
+                  color: THEME.text, fontFamily: FONT_TEXT, minWidth: 0,
+                }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.2, marginBottom: 2 }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_MONO }}>
+                    {p.ceilingFt}ft · {p.visibilitySM}SM · {p.maxWindKt}/{p.maxGustKt}kt · XW {p.maxCrosswindKt}kt
+                  </div>
+                </button>
+                <button onClick={() => startEditProfile(p)} style={{
+                  background: "transparent", border: `0.5px solid ${THEME.border}`,
+                  borderRadius: 7, color: THEME.textSecondary,
+                  fontSize: 12, fontWeight: 500, padding: "5px 10px",
+                  cursor: "pointer", flexShrink: 0, fontFamily: FONT_TEXT,
+                }}>Edit</button>
+                <button onClick={() => deleteProfile(p.id)} style={{
+                  background: "transparent", border: `0.5px solid ${THEME.red}40`,
+                  borderRadius: 7, color: THEME.red,
+                  fontSize: 14, lineHeight: 1, padding: "5px 9px",
+                  cursor: "pointer", flexShrink: 0,
+                }}>×</button>
+              </div>
+            ))}
+          </Card>
+
+          <button onClick={startNewProfile} style={{
+            width: "100%", padding: "12px",
+            borderRadius: 11, marginBottom: 18,
+            background: "transparent", border: `1px dashed ${THEME.border}`,
+            color: THEME.textSecondary, fontSize: 14, fontWeight: 500,
+            cursor: "pointer", fontFamily: FONT_TEXT, letterSpacing: -0.1,
+          }}>+ New Profile</button>
+
+          <div style={{ fontSize: 11, color: THEME.textTertiary, fontStyle: "italic", lineHeight: 1.6, fontFamily: FONT_TEXT, padding: "0 4px" }}>
+            Advisory only. Always verify weather against official sources (ATIS, AWOS, ASOS, Flight Service) before flight. This tool is not for primary flight planning.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Render: profile editor ──────────────────────────────────────────────
+  if (view === "edit") {
+    const ep = editingProfile;
+    return (
+      <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+        <div style={{
+          position: "sticky", top: 0, zIndex: 50,
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+          borderBottom: `0.5px solid ${THEME.separator}`,
+          paddingTop: "env(safe-area-inset-top, 0px)",
+        }}>
+          <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <button onClick={() => { setEditingProfile(null); setView("list"); }} style={{
+              background: "transparent", border: "none", color: THEME.red,
+              fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>‹ Cancel</button>
+            <button onClick={saveEditedProfile} disabled={!ep.name.trim()} style={{
+              background: "transparent", border: "none", color: ep.name.trim() ? THEME.red : THEME.textQuaternary,
+              fontSize: 16, fontWeight: 600, cursor: ep.name.trim() ? "pointer" : "not-allowed", padding: "4px 0", fontFamily: FONT_TEXT,
+            }}>Save</button>
+          </div>
+        </div>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5, margin: "8px 0 14px", fontFamily: FONT_TEXT }}>
+            {profiles.find(p => p.id === ep.id) ? "Edit Profile" : "New Profile"}
+          </h1>
+
+          <Card style={{ padding: 14, marginBottom: 16 }}>
+            <PlanField label="Profile name" value={ep.name} onChange={v => setEditingProfile({ ...ep, name: v })} placeholder='e.g., "Student – pre-solo"' />
+            <PlanField label="Min ceiling" value={String(ep.ceilingFt)} onChange={v => setEditingProfile({ ...ep, ceilingFt: parseInt(v, 10) || 0 })} placeholder="1500" suffix="ft AGL" numeric />
+            <PlanField label="Min visibility" value={String(ep.visibilitySM)} onChange={v => setEditingProfile({ ...ep, visibilitySM: parseFloat(v) || 0 })} placeholder="5" suffix="SM" numeric />
+            <PlanField label="Max steady wind" value={String(ep.maxWindKt)} onChange={v => setEditingProfile({ ...ep, maxWindKt: parseInt(v, 10) || 0 })} placeholder="25" suffix="kt" numeric />
+            <PlanField label="Max gust" value={String(ep.maxGustKt)} onChange={v => setEditingProfile({ ...ep, maxGustKt: parseInt(v, 10) || 0 })} placeholder="30" suffix="kt" numeric />
+            <PlanField label="Max crosswind component" value={String(ep.maxCrosswindKt)} onChange={v => setEditingProfile({ ...ep, maxCrosswindKt: parseInt(v, 10) || 0 })} placeholder="15" suffix="kt" numeric />
+          </Card>
+
+          <div style={{ fontSize: 11, color: THEME.textTertiary, fontStyle: "italic", lineHeight: 1.6, fontFamily: FONT_TEXT, padding: "0 4px" }}>
+            Set the most conservative limits you'd be comfortable with — these are <em>your</em> minimums, not regulatory minimums.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Render: weather comparison ──────────────────────────────────────────
+  const apt = airport.trim().toUpperCase();
+  const knownRunways = airportRunways[apt] || [];
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <button onClick={() => { setView("list"); setMetarData(null); setMetarError(null); setAirport(""); setSelectedRunway(""); }} style={{
+            background: "transparent", border: "none", color: THEME.red,
+            fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+          }}>‹ Profiles</button>
+        </div>
+      </div>
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5, margin: "8px 0 4px", fontFamily: FONT_TEXT }}>{activeProfile.name}</h1>
+        <div style={{ fontSize: 12, color: THEME.textTertiary, fontFamily: FONT_MONO, marginBottom: 18 }}>
+          {activeProfile.ceilingFt}ft · {activeProfile.visibilitySM}SM · {activeProfile.maxWindKt}/{activeProfile.maxGustKt}kt · XW {activeProfile.maxCrosswindKt}kt
+        </div>
+
+        <BetaBanner />
+        {/* Airport selector */}
+        <SectionLabel>Airport</SectionLabel>
+        <Card style={{ padding: 14, marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={airport}
+              onChange={e => setAirport(e.target.value.toUpperCase())}
+              placeholder="e.g., KADS"
+              style={{
+                flex: 1, background: THEME.bg, border: `1px solid ${THEME.border}`,
+                borderRadius: 9, padding: "10px 13px",
+                color: THEME.text, fontSize: 16, fontFamily: FONT_MONO,
+                letterSpacing: 1, outline: "none",
+              }}
+            />
+            <button onClick={() => apt && fetchMetar(apt)} disabled={!apt || fetching} style={{
+              background: apt && !fetching ? THEME.red : THEME.surface2,
+              border: "none", borderRadius: 10,
+              color: apt && !fetching ? "#fff" : THEME.textTertiary,
+              fontSize: 15, fontWeight: 600,
+              padding: "0 22px",
+              cursor: apt && !fetching ? "pointer" : "not-allowed",
+              fontFamily: FONT_TEXT,
+              minHeight: 44, minWidth: 80,
+            }}>{fetching ? "..." : "Fetch"}</button>
+          </div>
+          {airportHistory.length > 0 && !metarData && (
+            <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+              {airportHistory.slice(0, 8).map(code => (
+                <button key={code} onClick={() => { setAirport(code); fetchMetar(code); }} style={{
+                  background: THEME.surface2, border: `0.5px solid ${THEME.border}`,
+                  borderRadius: 100, padding: "5px 11px",
+                  color: THEME.textSecondary, fontSize: 12, fontFamily: FONT_MONO,
+                  cursor: "pointer", letterSpacing: 0.5,
+                }}>{code}</button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Error */}
+        {metarError && (
+          <div style={{
+            padding: "12px 14px", marginBottom: 14,
+            background: `${THEME.red}15`, border: `1px solid ${THEME.red}50`,
+            borderRadius: 10, fontSize: 13, color: THEME.red, fontFamily: FONT_TEXT,
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Couldn't fetch weather</div>
+            <div style={{ fontSize: 11, color: THEME.textSecondary }}>{metarError}. Check your connection and the airport code, then try again.</div>
+          </div>
+        )}
+
+        {/* Results */}
+        {metarData && (
+          <>
+            {/* Status banner */}
+            <div style={{
+              padding: "14px 16px", borderRadius: 12, marginBottom: 16,
+              background: allPass ? "#15351F" : `${THEME.red}15`,
+              border: `1px solid ${allPass ? "#3DA85B" : THEME.red}60`,
+              display: "flex", alignItems: "center", gap: 12,
+            }}>
+              <div style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>
+                {allPass ? "✅" : "⚠️"}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: allPass ? "#65D886" : THEME.red, letterSpacing: -0.2 }}>
+                  {allPass ? "Within minimums" : `${failCount} item${failCount === 1 ? "" : "s"} over your limit`}
+                </div>
+                <div style={{ fontSize: 11, color: THEME.textSecondary, marginTop: 2 }}>
+                  {metarData.observed ? `Observed ${metarData.observed.toUTCString().slice(17, 22)}Z (${Math.round((Date.now() - metarData.observed.getTime()) / 60000)} min ago)` : "Time unknown"}
+                </div>
+              </div>
+              <button onClick={() => fetchMetar(apt)} style={{
+                background: "transparent", border: `0.5px solid ${THEME.border}`,
+                borderRadius: 7, color: THEME.textSecondary,
+                fontSize: 11, fontWeight: 600, padding: "5px 10px",
+                cursor: "pointer", fontFamily: FONT_TEXT, flexShrink: 0,
+              }}>Refresh</button>
+            </div>
+
+            {/* Runway selector for crosswind */}
+            {knownRunways.length > 0 && typeof metarData.windDir === "number" && (
+              <div style={{ marginBottom: 14 }}>
+                <SectionLabel>Runway (for crosswind)</SectionLabel>
+                <Card style={{ padding: 10 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {knownRunways.map(rw => (
+                      <button key={rw} onClick={() => setSelectedRunway(rw)} style={{
+                        background: rw === selectedRunway ? THEME.red : THEME.surface2,
+                        border: `1px solid ${rw === selectedRunway ? THEME.red : THEME.border}`,
+                        borderRadius: 9, padding: "8px 14px",
+                        color: rw === selectedRunway ? "#fff" : THEME.textSecondary,
+                        fontSize: 14, fontWeight: 600, cursor: "pointer",
+                        fontFamily: FONT_MONO,
+                      }}>{rw}</button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 10, color: THEME.textTertiary, marginTop: 6, fontStyle: "italic" }}>
+                    Auto-selected favored runway based on current wind.
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Check rows */}
+            <SectionLabel>Comparison</SectionLabel>
+            <Card style={{ padding: 6, marginBottom: 14 }}>
+              {checks.map((c, i) => (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px",
+                  borderBottom: i < checks.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 11, flexShrink: 0,
+                    background: c.status === "pass" ? "#3DA85B" : c.status === "fail" ? THEME.red : "transparent",
+                    border: `1.5px solid ${c.status === "pass" ? "#3DA85B" : c.status === "fail" ? THEME.red : THEME.border}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "#fff", fontSize: 13, fontWeight: 700,
+                  }}>{c.status === "pass" ? "✓" : c.status === "fail" ? "!" : ""}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: THEME.text, lineHeight: 1.35, letterSpacing: -0.1 }}>{c.label}</div>
+                    <div style={{ fontSize: 11, color: THEME.textTertiary, marginTop: 2, fontFamily: FONT_MONO }}>
+                      Your limit: {c.limit} · Actual: <span style={{ color: c.status === "fail" ? THEME.red : c.status === "pass" ? "#65D886" : THEME.textSecondary, fontWeight: 600 }}>{c.actual}</span>
+                    </div>
+                    {c.note && (
+                      <div style={{ fontSize: 10, color: THEME.textTertiary, marginTop: 2, fontStyle: "italic" }}>{c.note}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </Card>
+
+            {/* Raw METAR */}
+            <SectionLabel>Raw METAR</SectionLabel>
+            <Card style={{ padding: "12px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: THEME.textSecondary, wordBreak: "break-all", lineHeight: 1.5 }}>
+                {metarData.raw || "—"}
+              </div>
+            </Card>
+          </>
+        )}
+
+        <div style={{ fontSize: 11, color: THEME.textTertiary, fontStyle: "italic", lineHeight: 1.6, fontFamily: FONT_TEXT, padding: "0 4px", marginTop: 8 }}>
+          Advisory only. Always verify weather against official sources before flight.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Lesson Archive ───────────────────────────────────────────────────────────
+// A unified view of every saved lesson across every student — including one-
+// time students whose records were never added to the roster, and students
+// who have since been deleted. Scans all `cfi_lessons_*` keys in localStorage
+// and aggregates them into a single sorted list.
+//
+// Each lesson stores a `studentSnapshot` at save time (name, training type,
+// stage, retrain), so we can display student info even when the original
+// student record is gone. The student ID is the suffix of the storage key.
+function LessonArchive({ onBack, onSelectLesson }) {
+  // Scan localStorage for every cfi_lessons_* key and merge into one list.
+  // Each entry retains its parent studentId so we can write back to the right
+  // key on delete.
+  const [entries, setEntries] = useState(() => {
+    const all = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith("cfi_lessons_")) continue;
+        const studentId = key.slice("cfi_lessons_".length);
+        const lessons = ls.get(key, []);
+        if (!Array.isArray(lessons)) continue;
+        for (const lesson of lessons) {
+          all.push({ lesson, studentId });
+        }
+      }
+    } catch (err) {
+      // If localStorage is inaccessible we just show empty — not worth crashing the UI
+      // eslint-disable-next-line no-console
+      console.error("[archive] failed to read localStorage:", err);
+    }
+    // Sort: drafts first, then by timestamp desc
+    all.sort((a, b) => {
+      if (!!a.lesson.isDraft !== !!b.lesson.isDraft) return a.lesson.isDraft ? -1 : 1;
+      return (b.lesson.timestamp || 0) - (a.lesson.timestamp || 0);
+    });
+    return all;
+  });
+
+  const [confirmDelete, setConfirmDelete] = useState(null); // lesson id
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Pull the active roster so we can mark which lessons belong to current students
+  // vs orphans (one-time or deleted)
+  const rosterIds = useState(() => {
+    const roster = ls.get("cfi_students", []);
+    return new Set(roster.map(s => s.id));
+  })[0];
+
+  function deleteLesson(studentId, lessonId) {
+    const archiveKey = `cfi_lessons_${studentId}`;
+    const existing = ls.get(archiveKey, []);
+    const remaining = existing.filter(l => l.id !== lessonId);
+    if (remaining.length === 0) {
+      // Clean up empty archive key entirely
+      try { localStorage.removeItem(archiveKey); } catch {}
+    } else {
+      ls.set(archiveKey, remaining);
+    }
+    setEntries(entries.filter(e => e.lesson.id !== lessonId));
+    setConfirmDelete(null);
+  }
+
+  function lessonSummary(l) {
+    const bits = [];
+    if (l.topics?.length) bits.push(`${l.topics.length} topic${l.topics.length === 1 ? "" : "s"}`);
+    if (l.notes?.length) bits.push(`${l.notes.length} note${l.notes.length === 1 ? "" : "s"}`);
+    if (l.hobbs?.total) bits.push(`${l.hobbs.total} hrs`);
+    return bits.join(" · ") || "—";
+  }
+
+  function formatDate(ts) {
+    if (!ts) return "Unknown date";
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (sameDay) return `Today · ${time}`;
+    if (isYesterday) return `Yesterday · ${time}`;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + ` · ${time}`;
+  }
+
+  // Filter entries by search query (matches student name)
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? entries.filter(({ lesson }) => {
+        const name = (lesson.studentSnapshot?.name || "").toLowerCase();
+        return name.includes(q);
+      })
+    : entries;
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <button onClick={onBack} style={{
+            background: "transparent", border: "none", color: THEME.red,
+            fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+          }}>‹ Back</button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, margin: "12px 0 6px", fontFamily: FONT_TEXT }}>Lesson Archive</h1>
+        <p style={{ color: THEME.textSecondary, fontSize: 14, margin: "0 0 18px", lineHeight: 1.5, fontFamily: FONT_TEXT }}>
+          Every saved lesson across all students, including one-time students and previously deleted records.
+        </p>
+
+        {/* Search box */}
+        {entries.length > 0 && (
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by student name…"
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: THEME.surface2, border: `1px solid ${THEME.border}`,
+              borderRadius: 10, padding: "10px 13px",
+              color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT,
+              outline: "none", marginBottom: 14,
+            }}
+          />
+        )}
+
+        {entries.length === 0 ? (
+          <div style={{
+            padding: "32px 20px", textAlign: "center",
+            border: `1px dashed ${THEME.border}`, borderRadius: 11,
+            color: THEME.textTertiary, fontSize: 14, fontFamily: FONT_TEXT,
+            fontStyle: "italic", lineHeight: 1.5,
+          }}>
+            No saved lessons yet.<br />Lessons appear here once you save them from a student's lesson page.
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{
+            padding: "24px 16px", textAlign: "center",
+            color: THEME.textTertiary, fontSize: 13, fontFamily: FONT_TEXT,
+            fontStyle: "italic",
+          }}>
+            No lessons match "{searchQuery}".
+          </div>
+        ) : (
+          <Card style={{ padding: 0, marginBottom: 14 }}>
+            {filtered.map(({ lesson, studentId }, i) => {
+              const isOrphan = !rosterIds.has(studentId);
+              const snap = lesson.studentSnapshot || {};
+              const name = snap.name || "(unknown student)";
+              const meta = [
+                snap.trainingType,
+                snap.stage,
+                snap.retrain ? "Retrain" : null,
+              ].filter(Boolean).join(" · ");
+              const isConfirming = confirmDelete === lesson.id;
+              return (
+                <div key={lesson.id} style={{
+                  borderBottom: i < filtered.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "12px 14px",
+                  }}>
+                    <button onClick={() => onSelectLesson(lesson, studentId, snap)} style={{
+                      flex: 1, background: "transparent", border: "none",
+                      padding: 0, textAlign: "left", cursor: "pointer",
+                      color: THEME.text, fontFamily: FONT_TEXT, minWidth: 0,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.2, color: THEME.text, lineHeight: 1.3 }}>
+                          {name}
+                        </div>
+                        {lesson.isDraft && (
+                          <span style={{
+                            background: THEME.red, color: "#fff",
+                            fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+                            padding: "2px 6px", borderRadius: 4,
+                            fontFamily: FONT_MONO, lineHeight: 1.2,
+                          }}>DRAFT</span>
+                        )}
+                        {isOrphan && (
+                          <span style={{
+                            background: THEME.surface2, color: THEME.textTertiary,
+                            border: `0.5px solid ${THEME.border}`,
+                            fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                            padding: "2px 6px", borderRadius: 4,
+                            fontFamily: FONT_MONO, lineHeight: 1.2,
+                          }}>ONE-TIME</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_MONO, marginBottom: 2 }}>
+                        {formatDate(lesson.timestamp)}
+                      </div>
+                      <div style={{ fontSize: 12, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.4 }}>
+                        {meta}{meta && " · "}{lessonSummary(lesson)}
+                      </div>
+                    </button>
+                    {isConfirming ? (
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => deleteLesson(studentId, lesson.id)} style={{
+                          background: THEME.red, border: "none", borderRadius: 8,
+                          color: "#fff", fontSize: 12, fontWeight: 600,
+                          padding: "6px 11px", cursor: "pointer",
+                        }}>Delete</button>
+                        <button onClick={() => setConfirmDelete(null)} style={{
+                          background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                          borderRadius: 8, color: THEME.textSecondary,
+                          fontSize: 13, padding: "9px 14px", minHeight: 36, cursor: "pointer",
+                        }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDelete(lesson.id)} aria-label="Remove lesson" style={{
+                        background: "transparent", border: "none",
+                        color: THEME.textQuaternary, cursor: "pointer",
+                        fontSize: 19, padding: "10px 12px", flexShrink: 0, lineHeight: 1,
+                      }}>×</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        )}
+
+        {entries.length > 0 && (
+          <div style={{ fontSize: 11, color: THEME.textTertiary, marginTop: 8, fontStyle: "italic", fontFamily: FONT_TEXT, padding: "0 4px" }}>
+            {entries.length} lesson{entries.length === 1 ? "" : "s"} total
+            {filtered.length !== entries.length && ` · ${filtered.length} shown`}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const APPROACH_CONFIG = {
   "ILS":      { mins: [] },
   "LOC":      { mins: [] },
   "RNAV":     { mins: ["LPV", "LNAV/VNAV", "LNAV", "LP"] },
   "VOR":      { mins: [] },
+  "VOR/DME":  { mins: [] },
   "NDB":      { mins: [] },
   "Visual":   { mins: [] },
 };
@@ -1719,6 +3243,11 @@ function ApproachBuilder({ onInsert, editMode }) {
   const [minimums, setMinimums] = useState("");
   const [isCircling, setIsCircling] = useState(false);
   const [circleRunway, setCircleRunway] = useState("");
+  // Custom-edit mode: lets the user override the auto-generated preview text
+  // with any arbitrary string. Useful as a fallback for approaches whose
+  // formatting doesn't fit the structured fields.
+  const [customMode, setCustomMode] = useState(false);
+  const [customText, setCustomText] = useState("");
 
   function selectAirport(code) {
     setAirport(code);
@@ -1745,6 +3274,24 @@ function ApproachBuilder({ onInsert, editMode }) {
   const circlingReady = !isCircling || circleRunway.trim().length > 0;
 
   function buildAndInsert() {
+    // Custom mode bypasses all structured logic — user typed exactly what
+    // they want and we insert it verbatim. Used as a backup for approaches
+    // whose format doesn't fit the structured fields.
+    if (customMode) {
+      const txt = customText.trim();
+      if (!txt) return;
+      onInsert(txt);
+      // Reset everything
+      setCustomMode(false);
+      setCustomText("");
+      setAirport("");
+      setRunway("");
+      setApproachType("");
+      setMinimums("");
+      setIsCircling(false);
+      setCircleRunway("");
+      return;
+    }
     if (!airport.trim() || !runway.trim() || !approachType) return;
     if (requiresMins && !minimums) return;
     if (isCircling && !circleRunway.trim()) return;
@@ -1793,6 +3340,8 @@ function ApproachBuilder({ onInsert, editMode }) {
     setMinimums("");
     setIsCircling(false);
     setCircleRunway("");
+    setCustomMode(false);
+    setCustomText("");
   }
 
   function removeAirport(code, e) {
@@ -1867,7 +3416,7 @@ function ApproachBuilder({ onInsert, editMode }) {
                   color: idx === 0 ? THEME.textQuaternary : THEME.text,
                   fontSize: 11, fontWeight: 700,
                   cursor: idx === 0 ? "default" : "pointer",
-                  padding: "4px 8px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
+                  padding: "8px 12px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
                   fontFamily: FONT_MONO,
                 }}>▲</button>
                 <button onClick={() => moveAirport(idx, 1)} disabled={idx === airports.length - 1} aria-label="Move down" style={{
@@ -1876,7 +3425,7 @@ function ApproachBuilder({ onInsert, editMode }) {
                   color: idx === airports.length - 1 ? THEME.textQuaternary : THEME.text,
                   fontSize: 11, fontWeight: 700,
                   cursor: idx === airports.length - 1 ? "default" : "pointer",
-                  padding: "4px 8px", lineHeight: 1, opacity: idx === airports.length - 1 ? 0.4 : 1,
+                  padding: "8px 12px", lineHeight: 1, opacity: idx === airports.length - 1 ? 0.4 : 1,
                   fontFamily: FONT_MONO,
                 }}>▼</button>
                 <button onClick={(e) => removeAirport(code, e)} aria-label="Remove" style={{
@@ -2042,41 +3591,85 @@ function ApproachBuilder({ onInsert, editMode }) {
         </div>
       )}
 
-      {/* Preview + insert */}
-      <div style={{
-        background: canInsert ? THEME.redDim : THEME.surface2,
-        border: `1px solid ${canInsert ? THEME.red + "60" : THEME.border}`,
-        borderRadius: 10, padding: "12px 14px",
-        marginBottom: 10,
-        transition: "all 0.2s",
-      }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: canInsert ? THEME.red : THEME.textTertiary, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontFamily: FONT_TEXT }}>
-          Preview
-        </div>
-        <div style={{ fontSize: 15, color: canInsert ? THEME.text : THEME.textTertiary, fontFamily: FONT_TEXT, fontWeight: 500, letterSpacing: -0.2 }}>
-          {canInsert
-            ? (isCircling
-                ? `${approachType} ${runway} circle ${circleRunway} @ ${airport.toUpperCase()}`
-                : (minimums
-                    ? `${approachType} ${runway} @ ${airport.toUpperCase()} (${minimums})`
-                    : `${approachType} ${runway} @ ${airport.toUpperCase()}`))
-            : (isCircling && !circleRunway
-                ? "Enter circle-to runway"
-                : (requiresMins && approachType && !minimums
-                    ? "Select minimums to continue"
-                    : "Fill all fields above"))}
-        </div>
-      </div>
+      {/* Preview + insert. In normal mode this is a read-only preview of what
+          will be inserted; tap the pencil to enter custom-text mode where the
+          preview becomes a text input the user can freely edit. This is the
+          backup path for approaches whose format doesn't fit the structured
+          fields. */}
+      {(() => {
+        // Compute the auto-generated preview text from the structured fields
+        const autoText = canInsert
+          ? (isCircling
+              ? `${approachType} ${runway} circle ${circleRunway} @ ${airport.toUpperCase()}`
+              : (minimums
+                  ? `${approachType} ${runway} @ ${airport.toUpperCase()} (${minimums})`
+                  : `${approachType} ${runway} @ ${airport.toUpperCase()}`))
+          : "";
+        const customReady = customMode && customText.trim().length > 0;
+        const showActive = customMode ? customReady : canInsert;
+        return (
+          <div style={{
+            background: showActive ? THEME.redDim : THEME.surface2,
+            border: `1px solid ${showActive ? THEME.red + "60" : THEME.border}`,
+            borderRadius: 10, padding: "12px 14px",
+            marginBottom: 10,
+            transition: "all 0.2s",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: showActive ? THEME.red : THEME.textTertiary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: FONT_TEXT }}>
+                {customMode ? "Custom Note" : "Preview"}
+              </div>
+              {customMode ? (
+                <button onClick={() => { setCustomMode(false); setCustomText(""); }} title="Back to auto-generated" style={{
+                  background: "transparent", border: "none",
+                  color: THEME.textSecondary, fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", fontFamily: FONT_TEXT, padding: "2px 6px",
+                  letterSpacing: -0.1, textDecoration: "underline",
+                }}>↺ Auto</button>
+              ) : (
+                <button onClick={() => { setCustomMode(true); setCustomText(autoText); }} title="Edit preview text" style={{
+                  background: "transparent", border: "none",
+                  color: THEME.textSecondary, fontSize: 13, lineHeight: 1,
+                  cursor: "pointer", padding: "2px 6px",
+                }}>✎</button>
+              )}
+            </div>
+            {customMode ? (
+              <input value={customText} autoFocus
+                onChange={e => setCustomText(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && customReady) buildAndInsert(); }}
+                placeholder="Type the approach exactly as you want it inserted…"
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: THEME.bg, border: `1px solid ${THEME.red}`,
+                  borderRadius: 8, padding: "8px 10px",
+                  color: THEME.text, fontSize: 15, fontFamily: FONT_TEXT,
+                  fontWeight: 500, letterSpacing: -0.2, outline: "none",
+                }} />
+            ) : (
+              <div style={{ fontSize: 15, color: canInsert ? THEME.text : THEME.textTertiary, fontFamily: FONT_TEXT, fontWeight: 500, letterSpacing: -0.2 }}>
+                {canInsert
+                  ? autoText
+                  : (isCircling && !circleRunway
+                      ? "Enter circle-to runway"
+                      : (requiresMins && approachType && !minimums
+                          ? "Select minimums to continue"
+                          : "Fill all fields above, or tap ✎ to write a custom approach"))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
-      <button onClick={buildAndInsert} disabled={!canInsert} style={{
+      <button onClick={buildAndInsert} disabled={customMode ? !customText.trim() : !canInsert} style={{
         width: "100%", padding: "12px",
-        background: canInsert ? THEME.red : THEME.surface2,
+        background: (customMode ? customText.trim() : canInsert) ? THEME.red : THEME.surface2,
         border: "none", borderRadius: 11,
-        color: canInsert ? "#fff" : THEME.textTertiary,
+        color: (customMode ? customText.trim() : canInsert) ? "#fff" : THEME.textTertiary,
         fontSize: 15, fontWeight: 600,
-        cursor: canInsert ? "pointer" : "not-allowed",
+        cursor: (customMode ? customText.trim() : canInsert) ? "pointer" : "not-allowed",
         fontFamily: FONT_TEXT, letterSpacing: -0.2,
-        boxShadow: canInsert ? `0 4px 16px ${THEME.redGlow}` : "none",
+        boxShadow: (customMode ? customText.trim() : canInsert) ? `0 4px 16px ${THEME.redGlow}` : "none",
         transition: "all 0.2s",
       }}>+ Add Approach Note</button>
     </div>
@@ -2727,13 +4320,13 @@ function NotesSection({ trainingType, notes, setNotes }) {
                 }}>{isAddingSub ? "Done" : "+ Sub"}</button>
               {confirmRemoveNote === i ? (
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button onClick={() => { removeNote(i); setConfirmRemoveNote(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 11px", cursor: "pointer" }}>Delete</button>
-                  <button onClick={() => setConfirmRemoveNote(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "6px 11px", cursor: "pointer" }}>Cancel</button>
+                  <button onClick={() => { removeNote(i); setConfirmRemoveNote(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Delete</button>
+                  <button onClick={() => setConfirmRemoveNote(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 13, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Cancel</button>
                 </div>
               ) : (
-                <button onClick={() => setConfirmRemoveNote(i)} style={{
+                <button onClick={() => setConfirmRemoveNote(i)} aria-label="Remove note" style={{
                   background: "transparent", border: "none", color: THEME.textQuaternary,
-                  cursor: "pointer", fontSize: 20, padding: "0 2px", flexShrink: 0, lineHeight: 1,
+                  cursor: "pointer", fontSize: 20, padding: "10px 12px", flexShrink: 0, lineHeight: 1,
                 }}>×</button>
               )}
             </div>
@@ -2747,13 +4340,13 @@ function NotesSection({ trainingType, notes, setNotes }) {
                     <span style={{ flex: 1, fontSize: 14, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.5 }}>{sub}</span>
                     {confirmRemoveSub && confirmRemoveSub.noteIdx === i && confirmRemoveSub.subIdx === si ? (
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => { removeSubBullet(i, si); setConfirmRemoveSub(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 600, padding: "5px 9px", cursor: "pointer" }}>Delete</button>
-                        <button onClick={() => setConfirmRemoveSub(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 11, padding: "5px 9px", cursor: "pointer" }}>Cancel</button>
+                        <button onClick={() => { removeSubBullet(i, si); setConfirmRemoveSub(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 12px", minHeight: 34, cursor: "pointer" }}>Delete</button>
+                        <button onClick={() => setConfirmRemoveSub(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "8px 12px", minHeight: 34, cursor: "pointer" }}>Cancel</button>
                       </div>
                     ) : (
-                      <button onClick={() => setConfirmRemoveSub({ noteIdx: i, subIdx: si })} style={{
+                      <button onClick={() => setConfirmRemoveSub({ noteIdx: i, subIdx: si })} aria-label="Remove sub-bullet" style={{
                         background: "transparent", border: "none", color: THEME.textQuaternary,
-                        cursor: "pointer", fontSize: 17, padding: "0 3px", flexShrink: 0, lineHeight: 1,
+                        cursor: "pointer", fontSize: 17, padding: "8px 10px", flexShrink: 0, lineHeight: 1,
                       }}>×</button>
                     )}
                   </div>
@@ -2919,15 +4512,16 @@ function IMCTimer({ imc, setImc }) {
 
           {/* Start/Stop button */}
           <button onClick={isRunning ? stop : start} style={{
-            width: "100%", padding: "11px",
-            borderRadius: 11,
+            width: "100%", padding: "14px",
+            borderRadius: 12,
             background: isRunning ? THEME.red : THEME.surface2,
             border: isRunning ? "none" : `1px solid ${THEME.border}`,
             color: isRunning ? "#fff" : THEME.text,
-            fontSize: 14, fontWeight: 600, cursor: "pointer",
+            fontSize: 15, fontWeight: 600, cursor: "pointer",
             fontFamily: FONT_TEXT, letterSpacing: -0.2,
             boxShadow: isRunning ? `0 2px 12px ${THEME.redGlow}` : "none",
             transition: "transform 0.1s, background 0.15s",
+            minHeight: 48,
           }}
           onTouchStart={e => e.currentTarget.style.transform = "scale(0.97)"}
           onTouchEnd={e => e.currentTarget.style.transform = "scale(1)"}>
@@ -3552,10 +5146,10 @@ function LandingTracker({ landings, setLandings, landingAirport, setLandingAirpo
                       fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_MONO,
                     }}>—</span>
                   )}
-                  <button onClick={() => removeLanding(l.id)} style={{
+                  <button onClick={() => removeLanding(l.id)} aria-label="Remove landing" style={{
                     background: "transparent", border: "none",
-                    color: THEME.textQuaternary, fontSize: 16,
-                    cursor: "pointer", padding: "0 2px", lineHeight: 1,
+                    color: THEME.textQuaternary, fontSize: 17,
+                    cursor: "pointer", padding: "8px 10px", lineHeight: 1, flexShrink: 0,
                   }}>×</button>
                 </div>
               ))}
@@ -3682,7 +5276,7 @@ function LessonSettings({ onBack }) {
                   color: idx === 0 ? THEME.textQuaternary : THEME.text,
                   fontSize: 12, fontWeight: 700,
                   cursor: idx === 0 ? "default" : "pointer",
-                  padding: "5px 9px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
+                  padding: "9px 13px", lineHeight: 1, opacity: idx === 0 ? 0.4 : 1,
                   fontFamily: FONT_MONO, flexShrink: 0,
                 }}>▲</button>
                 <button onClick={() => moveTool(idx, 1)} disabled={idx === order.length - 1} aria-label="Move down" style={{
@@ -3691,7 +5285,7 @@ function LessonSettings({ onBack }) {
                   color: idx === order.length - 1 ? THEME.textQuaternary : THEME.text,
                   fontSize: 12, fontWeight: 700,
                   cursor: idx === order.length - 1 ? "default" : "pointer",
-                  padding: "5px 9px", lineHeight: 1, opacity: idx === order.length - 1 ? 0.4 : 1,
+                  padding: "9px 13px", lineHeight: 1, opacity: idx === order.length - 1 ? 0.4 : 1,
                   fontFamily: FONT_MONO, flexShrink: 0,
                 }}>▼</button>
               </div>
@@ -3791,7 +5385,7 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
   }
 
   function saveLesson(opts = {}) {
-    const isDraft = !!opts.draft;
+    let isDraft = !!opts.draft;
     // Archive captures the FULL lesson — student info, HOBBS, topics, notes, landings, etc.
     const hasContent = hobbs.out || hobbs.in_ || hobbs.total || topics.length || notes.length || (landings && landings.length) || (imc && imc.totalSeconds > 0);
     if (!hasContent) return false;
@@ -3806,7 +5400,16 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
     if (lessonId) {
       // Look up the original timestamp so re-saves preserve when the lesson actually happened
       const prior = existing.find(l => l.id === lessonId);
-      if (prior) originalTimestamp = prior.timestamp;
+      if (prior) {
+        originalTimestamp = prior.timestamp;
+        // CRITICAL: if we're auto-saving (draft=true) but the underlying lesson
+        // is already a saved (non-draft) lesson — i.e., we're editing it — we
+        // must NOT flip it back to a draft. Otherwise editing a finalized lesson
+        // would silently demote it to draft status after 5 sec of auto-save.
+        if (isDraft && prior.isDraft === false) {
+          isDraft = false;
+        }
+      }
     }
     if (!lessonId) {
       lessonId = Date.now().toString();
@@ -4070,7 +5673,7 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
               case "imc":
                 return <IMCTimer imc={imc} setImc={setImc} />;
               case "topics":
-                return <TopicPicker trainingType={student.trainingType} stage={student.stage} topics={topics} setTopics={setTopics} checked={checkedTopics} setChecked={setCheckedTopics} />;
+                return <TopicPicker trainingType={student.trainingType} stage={student.stage} topics={topics} setTopics={setTopics} checked={checkedTopics} setChecked={setCheckedTopics} notes={notes} setNotes={setNotes} />;
               case "notes":
                 return <NotesSection trainingType={student.trainingType} notes={notes} setNotes={setNotes} />;
               default:
@@ -4246,12 +5849,12 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
                 </div>
                 {confirmDelete === l.id ? (
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => deleteLesson(l.id)} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 11px", cursor: "pointer" }}>Delete</button>
-                    <button onClick={() => setConfirmDelete(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "6px 11px", cursor: "pointer" }}>Cancel</button>
+                    <button onClick={() => deleteLesson(l.id)} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 600, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Delete</button>
+                    <button onClick={() => setConfirmDelete(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 13, padding: "9px 14px", minHeight: 36, cursor: "pointer" }}>Cancel</button>
                   </div>
                 ) : (
                   <>
-                    <button onClick={() => setConfirmDelete(l.id)} style={{ background: "transparent", border: "none", color: THEME.textQuaternary, fontSize: 20, cursor: "pointer", padding: "4px 6px", lineHeight: 1 }}>×</button>
+                    <button onClick={() => setConfirmDelete(l.id)} aria-label="Delete lesson" style={{ background: "transparent", border: "none", color: THEME.textQuaternary, fontSize: 20, cursor: "pointer", padding: "10px 12px", lineHeight: 1, flexShrink: 0 }}>×</button>
                     <span style={{ color: THEME.textQuaternary, fontSize: 17, marginLeft: -4 }}>›</span>
                   </>
                 )}
@@ -5071,20 +6674,34 @@ function formatTime(d) {
 
 // ─── Day/Night Calculator ─────────────────────────────────────────────────────
 
-function DayNightCalc({ onBack, initialHobbs, returnLabel, onSaveSplit }) {
+function DayNightCalc({ onBack, initialHobbs, returnLabel, onSaveSplit, initialDraft, onUpdateDraft }) {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
 
   // Default airport: KADS (Addison) — Thrust Flight's home base
   const DEFAULT_AIRPORT = AIRPORTS.find(a => a[0] === "KADS") || null;
 
-  const [date, setDate] = useState(todayStr);
+  // Initialize from the draft if one was passed (lets us preserve engine start
+  // entered earlier in the same lesson, even after navigating away). All draft
+  // fields fall back to sensible defaults.
+  const d = initialDraft || null;
+  const [date, setDate] = useState(d?.date || todayStr);
   const [depQuery, setDepQuery] = useState("");
   const [destQuery, setDestQuery] = useState("");
-  const [depAirport, setDepAirport] = useState(DEFAULT_AIRPORT);
-  const [destAirport, setDestAirport] = useState(DEFAULT_AIRPORT);
-  const [engineStart, setEngineStart] = useState(""); // HH:MM
-  const [hobbsTotal, setHobbsTotal] = useState(initialHobbs || ""); // hours, e.g. "1.8"
+  const [depAirport, setDepAirport] = useState(d?.depAirport || DEFAULT_AIRPORT);
+  const [destAirport, setDestAirport] = useState(d?.destAirport || DEFAULT_AIRPORT);
+  const [engineStart, setEngineStart] = useState(d?.engineStart || ""); // HH:MM
+  const [hobbsTotal, setHobbsTotal] = useState(d?.hobbsTotal || initialHobbs || ""); // hours, e.g. "1.8"
+
+  // Persist draft to lesson state on any field change. This is the core fix
+  // for "engine start needs to save before hobbs is filled in" — every time
+  // the user types into any field, we save the current draft so it survives
+  // navigation away from the Solar tool.
+  useEffect(() => {
+    if (!onUpdateDraft) return;
+    onUpdateDraft({ date, depAirport, destAirport, engineStart, hobbsTotal });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, depAirport, destAirport, engineStart, hobbsTotal]);
 
   // Filter airports by query
   function filterAirports(q) {
@@ -5538,6 +7155,20 @@ export default function App() {
   // CRITICAL: persisted to localStorage so iOS suspending the PWA (e.g. switching
   // apps mid-flight) doesn't lose work in progress. Restored on every app load.
   const LESSON_STATES_KEY = "cfi_lesson_states_v1";
+
+  // One-time migration for v4.76: as part of the workflow change that makes
+  // "tap student on home = fresh lesson," we discard any leftover lessonStates
+  // from before this change. Drafts in localStorage archives are unaffected —
+  // they'll still appear in each student's History. This migration runs exactly
+  // once thanks to the version flag.
+  const STATE_MIGRATION_KEY = "cfi_lesson_states_migrated_v4_76";
+  if (typeof window !== "undefined" && !ls.get(STATE_MIGRATION_KEY, false)) {
+    try {
+      localStorage.removeItem(LESSON_STATES_KEY);
+      ls.set(STATE_MIGRATION_KEY, true);
+    } catch {}
+  }
+
   const [lessonStates, setLessonStates] = useState(() => ls.get(LESSON_STATES_KEY, {}));
 
   // Save lessonStates to localStorage every time it changes.
@@ -5632,7 +7263,13 @@ export default function App() {
   }
   if (view.type === "lesson") {
     return <PastLessonDetail lesson={view.lesson}
-      onBack={() => setView({ type: "history", student: view.student })}
+      onBack={() => {
+        if (view.returnTo === "archive") {
+          setView({ type: "archive" });
+        } else {
+          setView({ type: "history", student: view.student });
+        }
+      }}
       onEdit={(lessonToEdit) => {
         // Load the lesson's data into the in-progress state, keeping the same id
         // so that saveLesson() upserts (replaces) instead of duplicating.
@@ -5658,8 +7295,17 @@ export default function App() {
   }
   if (view.type === "daynight") {
     const returningToLesson = view.returnTo === "notes" && view.student;
+    // When opened from a lesson, pull the saved Solar draft from lesson state
+    // so values entered earlier (engine start, etc.) persist across navigation.
+    const draftFromState = returningToLesson
+      ? (lessonStates[view.student.id]?.solarDraft || null)
+      : null;
     return <DayNightCalc
       initialHobbs={view.initialHobbs || ""}
+      initialDraft={draftFromState}
+      onUpdateDraft={returningToLesson ? (draft) => {
+        updateLessonState(view.student.id, () => ({ solarDraft: draft }));
+      } : null}
       returnLabel={returningToLesson ? `‹ ${view.student.name.split(" ")[0]}'s Lesson` : "‹ Home"}
       onSaveSplit={returningToLesson ? (split) => {
         updateLessonState(view.student.id, () => ({ loggingSplit: split }));
@@ -5675,9 +7321,46 @@ export default function App() {
   if (view.type === "settings") {
     return <LessonSettings onBack={() => setView({ type: "notes", student: view.student, editing: view.editing })} />;
   }
+  if (view.type === "xcplanner") {
+    return <XCPlanner onBack={() => setView({ type: "selector" })} />;
+  }
+  if (view.type === "wxmins") {
+    return <WeatherMinimums onBack={() => setView({ type: "selector" })} />;
+  }
+  if (view.type === "archive") {
+    return <LessonArchive
+      onBack={() => setView({ type: "selector" })}
+      onSelectLesson={(lesson, studentId, snapshot) => {
+        // Reconstruct a synthetic student object so PastLessonDetail (and Edit
+        // Lesson flow) work the same way they do for active students. The id
+        // is preserved so saveLesson() will write back to the correct archive
+        // key if the user enters edit mode.
+        const syntheticStudent = {
+          id: studentId,
+          name: snapshot?.name || "(unknown)",
+          trainingType: snapshot?.trainingType || "",
+          stage: snapshot?.stage || "",
+          retrain: !!snapshot?.retrain,
+          oneTime: false, // doesn't matter at this point
+        };
+        setView({ type: "lesson", student: syntheticStudent, lesson, returnTo: "archive" });
+      }}
+    />;
+  }
   return <StudentSelector
-    onSelect={(s) => setView({ type: "notes", student: s })}
+    onSelect={(s) => {
+      // Always start a FRESH lesson when tapping a student from the home page.
+      // Any in-progress work is already auto-saved to that student's archive as
+      // a DRAFT (see saveLesson auto-draft logic), so nothing is lost — drafts
+      // are still accessible via the History button. The home page tap is now
+      // unambiguously "I'm about to start a new lesson."
+      clearLessonState(s.id);
+      setView({ type: "notes", student: s });
+    }}
     onViewHistory={(s) => setView({ type: "history", student: s })}
     onOpenDayNight={() => setView({ type: "daynight" })}
+    onOpenXCPlanner={() => setView({ type: "xcplanner" })}
+    onOpenWxMins={() => setView({ type: "wxmins" })}
+    onOpenArchive={() => setView({ type: "archive" })}
   />;
 }
