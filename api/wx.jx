@@ -1,0 +1,134 @@
+// Vercel serverless function — proxies aviationweather.gov requests for all
+// weather data types used by the Weather Snapshot tool.
+//
+// File location: /api/wx.js (at the repo root, NOT inside /src)
+// Reachable at: https://your-app.vercel.app/api/wx?type=metar&id=KADS
+//
+// Query params:
+//   type — one of: "metar" | "taf" | "airsigmet" | "pirep" | "windsaloft"
+//   id   — ICAO airport code (used by metar, taf)
+//   lat/lon — for pirep (search radius around a point)
+//   radius — for pirep (in NM; default 50)
+//
+// All responses are JSON proxied directly from aviationweather.gov, with
+// permissive CORS headers and a short cache for cost/performance reasons.
+
+export default async function handler(req, res) {
+  // CORS for cross-origin clients (harmless when same-origin)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  const type = (req.query.type || "").toString().toLowerCase();
+  if (!type) {
+    res.status(400).json({ error: "Missing 'type' query parameter" });
+    return;
+  }
+
+  // Build the upstream URL based on type
+  let upstreamUrl = null;
+  let cacheSeconds = 300; // 5 min default
+
+  if (type === "metar") {
+    const id = (req.query.id || "").toString().trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(id)) {
+      res.status(400).json({ error: "Invalid airport code" });
+      return;
+    }
+    upstreamUrl = `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(id)}&format=json`;
+    cacheSeconds = 300;
+  } else if (type === "taf") {
+    const id = (req.query.id || "").toString().trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(id)) {
+      res.status(400).json({ error: "Invalid airport code" });
+      return;
+    }
+    upstreamUrl = `https://aviationweather.gov/api/data/taf?ids=${encodeURIComponent(id)}&format=json`;
+    cacheSeconds = 1200; // 20 min — TAFs update every 6 hours
+  } else if (type === "airsigmet") {
+    // Get all active AIRMETs/SIGMETs — we'll filter client-side by location
+    upstreamUrl = `https://aviationweather.gov/api/data/airsigmet?format=json`;
+    cacheSeconds = 600; // 10 min
+  } else if (type === "pirep") {
+    // PIREPs near a point
+    const lat = parseFloat(req.query.lat);
+    const lon = parseFloat(req.query.lon);
+    const radius = parseFloat(req.query.radius) || 50; // NM
+    if (isNaN(lat) || isNaN(lon)) {
+      res.status(400).json({ error: "Missing or invalid lat/lon" });
+      return;
+    }
+    // aviationweather.gov pirep endpoint takes a bounding box
+    // Convert radius (NM) to approximate degrees (1 deg latitude ≈ 60 NM)
+    const dLat = radius / 60;
+    const dLon = radius / (60 * Math.cos((lat * Math.PI) / 180));
+    const bbox = `${(lat - dLat).toFixed(3)},${(lon - dLon).toFixed(3)},${(lat + dLat).toFixed(3)},${(lon + dLon).toFixed(3)}`;
+    upstreamUrl = `https://aviationweather.gov/api/data/pirep?bbox=${encodeURIComponent(bbox)}&format=json&age=2`;
+    cacheSeconds = 300;
+  } else if (type === "windsaloft") {
+    // Winds aloft — query by airport (FB family of products)
+    // The aviationweather.gov windtemp endpoint
+    const id = (req.query.id || "").toString().trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(id)) {
+      res.status(400).json({ error: "Invalid airport code" });
+      return;
+    }
+    // Use the windtemp text product
+    upstreamUrl = `https://aviationweather.gov/api/data/windtemp?region=us&fcst=06&level=low`;
+    cacheSeconds = 3600; // 1 hour
+  } else if (type === "stationinfo") {
+    // Station metadata (for lat/lon lookup)
+    const id = (req.query.id || "").toString().trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(id)) {
+      res.status(400).json({ error: "Invalid airport code" });
+      return;
+    }
+    upstreamUrl = `https://aviationweather.gov/api/data/stationinfo?ids=${encodeURIComponent(id)}&format=json`;
+    cacheSeconds = 86400; // 24h — station info rarely changes
+  } else {
+    res.status(400).json({ error: `Unknown type: ${type}` });
+    return;
+  }
+
+  res.setHeader("Cache-Control", `public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}`);
+
+  try {
+    const upstream = await fetch(upstreamUrl, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "ThrustCFI/1.0",
+      },
+    });
+    if (!upstream.ok) {
+      res.status(upstream.status).json({
+        error: `Upstream returned HTTP ${upstream.status}`,
+      });
+      return;
+    }
+    const contentType = upstream.headers.get("content-type") || "";
+    // Some endpoints return text (e.g., windtemp); pass through accordingly
+    if (contentType.includes("application/json")) {
+      const data = await upstream.json();
+      res.status(200).json(data);
+    } else {
+      const text = await upstream.text();
+      // Wrap text response so the client always gets a uniform shape
+      res.status(200).json({ raw: text });
+    }
+  } catch (err) {
+    res.status(502).json({
+      error: "Failed to reach aviationweather.gov",
+      detail: err.message || String(err),
+    });
+  }
+}
