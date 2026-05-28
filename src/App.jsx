@@ -495,6 +495,49 @@ function stageLabel(stageOrObj, retrain) {
   return retrain ? `${stageOrObj} RT` : stageOrObj;
 }
 
+// Convert ASCII letters/digits to their Unicode "Mathematical Sans-Serif Bold"
+// equivalents. These characters look bold in any font that supports them
+// (modern browsers, iOS, FSP) without actually being styled — they're just
+// different codepoints. This lets bold text survive plain-text fields that
+// would otherwise strip formatting (the FSP comment box being our target).
+//
+// Mapping ranges (Mathematical Alphanumeric Symbols block):
+//   A-Z → U+1D5D4 to U+1D5ED  (𝗔 to 𝗭)
+//   a-z → U+1D5EE to U+1D607  (𝗮 to 𝘇)
+//   0-9 → U+1D7EC to U+1D7F5  (𝟬 to 𝟵)
+// Non-alphanumeric characters (spaces, punctuation, @, /, :, etc.) pass
+// through unchanged — they have no bold variant in Unicode and would just
+// look weird if we tried to substitute.
+//
+// IMPORTANT trade-offs of this approach (documented for future maintainers):
+//   - Screen readers verbalize each character ("Mathematical bold capital G")
+//   - Text search will NOT match — "GPS" won't find "𝗚𝗣𝗦"
+//   - Some older systems may render these as boxes if the font lacks them
+// We use this sparingly — only for FSP-bound text where line-break stripping
+// makes visual emphasis genuinely valuable.
+function toUnicodeBold(text) {
+  if (!text) return "";
+  let out = "";
+  // Iterate by code point (handles surrogate pairs and emoji safely)
+  for (const ch of text) {
+    const cp = ch.codePointAt(0);
+    if (cp >= 0x41 && cp <= 0x5A) {
+      // A-Z → bold sans-serif A-Z
+      out += String.fromCodePoint(0x1D5D4 + (cp - 0x41));
+    } else if (cp >= 0x61 && cp <= 0x7A) {
+      // a-z → bold sans-serif a-z
+      out += String.fromCodePoint(0x1D5EE + (cp - 0x61));
+    } else if (cp >= 0x30 && cp <= 0x39) {
+      // 0-9 → bold sans-serif 0-9
+      out += String.fromCodePoint(0x1D7EC + (cp - 0x30));
+    } else {
+      // Pass-through for everything else (spaces, punctuation, emoji, symbols)
+      out += ch;
+    }
+  }
+  return out;
+}
+
 // ─── Reusable Apple-style Card ────────────────────────────────────────────────
 function Card({ children, style }) {
   return (
@@ -596,7 +639,7 @@ function CreditBadge() {
   );
 }
 
-function StudentSelector({ onSelect, onViewHistory, onOpenDayNight, onOpenXCPlanner, onOpenWxMins, onOpenArchive }) {
+function StudentSelector({ onSelect, onViewHistory, onOpenDayNight, onOpenXCPlanner, onOpenWxMins, onOpenWxSnap, onOpenArchive }) {
   const [students, setStudents] = useState(() => ls.get("cfi_students", []));
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
@@ -841,6 +884,31 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight, onOpenXCPlan
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 18 }}>⛅</span>
               <span>Weather Minimums</span>
+              <span style={{
+                background: THEME.red, color: "#fff",
+                fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
+                padding: "2px 6px", borderRadius: 4,
+                fontFamily: FONT_MONO, lineHeight: 1.2,
+              }}>BETA</span>
+            </span>
+            <span style={{ color: THEME.textQuaternary, fontSize: 17 }}>›</span>
+          </button>
+        )}
+
+        {!showNew && (
+          <button onClick={onOpenWxSnap} style={{
+            width: "100%", padding: "13px",
+            borderRadius: 12, marginBottom: 10,
+            background: THEME.surface, border: `1px solid ${THEME.border}`,
+            color: THEME.text, fontSize: 15, fontWeight: 500,
+            cursor: "pointer", fontFamily: FONT_TEXT,
+            letterSpacing: -0.2,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 10,
+          }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>📋</span>
+              <span>Weather Snapshot</span>
               <span style={{
                 background: THEME.red, color: "#fff",
                 fontSize: 9, fontWeight: 800, letterSpacing: 0.8,
@@ -1918,6 +1986,201 @@ function TopicPicker({ trainingType, stage, topics, setTopics, checked, setCheck
         </div>
       )}
     </Card>
+  );
+}
+
+// ─── Runway Keypad ────────────────────────────────────────────────────────────
+// Bottom-anchored custom keypad for runway entry. Replaces the iOS system
+// keyboard for runway fields specifically because:
+//   1. Runway designators are 1-2 digits + optional L/C/R suffix — a tiny
+//      vocabulary that doesn't need a full keyboard.
+//   2. The iOS numeric keyboard doesn't include letters, so switching between
+//      "16" and "16L" requires a keyboard mode change. Disruptive in the
+//      cockpit.
+//   3. Big, well-spaced buttons reduce fat-finger errors during turbulence.
+//
+// Drive it with: <RunwayKeypad value={runway} onChange={setRunway} onClose={...} />
+// The component handles its own dismissal logic via a backdrop tap or Done button.
+//
+// Behavior rules:
+//   - Digits: max 2, after which digit buttons disable
+//   - L / C / R: max 1, only acceptable after at least 1 digit, replaces any
+//     existing letter (so user can correct L → R without backspacing)
+//   - Backspace: removes the last character
+//   - Done: dismisses the keypad (also via backdrop tap)
+function RunwayKeypad({ value, onChange, onClose }) {
+  const v = (value || "").toUpperCase();
+  // Parse the value into digits + letter
+  const digits = v.replace(/[^0-9]/g, "");
+  const letter = (v.match(/[LCR]/) || [""])[0];
+
+  function pressDigit(d) {
+    // If a letter is already present, new digits go before it
+    if (digits.length >= 2) return; // max 2 digits
+    onChange((digits + d) + letter);
+  }
+  function pressLetter(l) {
+    // Letter only meaningful with at least 1 digit; ignore otherwise
+    if (digits.length === 0) return;
+    // Replace existing letter (toggling between L/C/R)
+    onChange(digits + l);
+  }
+  function pressBackspace() {
+    if (letter) {
+      onChange(digits);
+    } else if (digits.length > 0) {
+      onChange(digits.slice(0, -1));
+    }
+  }
+  function pressClear() {
+    onChange("");
+  }
+
+  // Reusable button styles
+  const baseBtn = {
+    background: THEME.surface2,
+    border: `1px solid ${THEME.border}`,
+    borderRadius: 12,
+    color: THEME.text,
+    fontSize: 22, fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: FONT_MONO,
+    minHeight: 56,
+    transition: "transform 0.08s, background 0.12s",
+    // Suppress iOS visual side effects of tapping:
+    //   - tap highlight (the grey/blue flash on tap)
+    //   - text selection (blue highlight ring on press-and-hold)
+    //   - long-press callout menu ("Copy / Select All")
+    WebkitTapHighlightColor: "transparent",
+    userSelect: "none",
+    WebkitUserSelect: "none",
+    WebkitTouchCallout: "none",
+  };
+  function btnStyle(extra = {}) {
+    return { ...baseBtn, ...extra };
+  }
+  const disabledStyle = { opacity: 0.3, cursor: "default" };
+
+  const digitsFull = digits.length >= 2;
+  const canTypeLetter = digits.length > 0;
+
+  return (
+    <>
+      {/* Backdrop — tap-to-dismiss */}
+      <div onClick={onClose} style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.4)",
+        backdropFilter: "blur(2px)",
+        WebkitBackdropFilter: "blur(2px)",
+      }} />
+      {/* Keypad panel */}
+      <div onClick={e => e.stopPropagation()} style={{
+        position: "fixed", left: 0, right: 0, bottom: 0,
+        zIndex: 201,
+        background: THEME.surface,
+        borderTop: `0.5px solid ${THEME.separator}`,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        padding: "10px 12px calc(14px + env(safe-area-inset-bottom, 0px)) 12px",
+        boxShadow: "0 -8px 24px rgba(0,0,0,0.4)",
+        // Disable text selection across the whole keypad so press-and-hold on
+        // any button (especially backspace which is held when correcting
+        // multiple characters) doesn't draw the iOS selection ring.
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        WebkitTapHighlightColor: "transparent",
+      }}>
+        {/* Top bar: current value display + Done */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: 10, padding: "4px 6px 6px",
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: THEME.textTertiary, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: FONT_TEXT, marginBottom: 1 }}>
+              Runway
+            </div>
+            <div style={{
+              fontSize: 24, fontWeight: 700, fontFamily: FONT_MONO,
+              color: v ? THEME.text : THEME.textQuaternary,
+              letterSpacing: 1, lineHeight: 1.1, minHeight: 28,
+            }}>{v || "—"}</div>
+          </div>
+          {v && (
+            <button onClick={pressClear} style={{
+              background: "transparent", border: "none",
+              color: THEME.textSecondary, fontSize: 14,
+              padding: "8px 10px", cursor: "pointer", fontFamily: FONT_TEXT,
+              marginRight: 6,
+              WebkitTapHighlightColor: "transparent",
+              userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
+            }}>Clear</button>
+          )}
+          <button onClick={onClose} style={{
+            background: THEME.red, border: "none", borderRadius: 9,
+            color: "#fff", fontSize: 15, fontWeight: 600,
+            padding: "10px 18px", cursor: "pointer", fontFamily: FONT_TEXT,
+            minHeight: 40,
+            WebkitTapHighlightColor: "transparent",
+            userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none",
+          }}>Done</button>
+        </div>
+
+        {/* Grid: 3 columns of buttons */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 8,
+        }}>
+          {/* Row 1: 1 2 3 */}
+          <button onClick={() => pressDigit("1")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>1</button>
+          <button onClick={() => pressDigit("2")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>2</button>
+          <button onClick={() => pressDigit("3")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>3</button>
+          {/* Row 2: 4 5 6 */}
+          <button onClick={() => pressDigit("4")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>4</button>
+          <button onClick={() => pressDigit("5")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>5</button>
+          <button onClick={() => pressDigit("6")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>6</button>
+          {/* Row 3: 7 8 9 */}
+          <button onClick={() => pressDigit("7")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>7</button>
+          <button onClick={() => pressDigit("8")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>8</button>
+          <button onClick={() => pressDigit("9")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>9</button>
+          {/* Row 4: L 0 R */}
+          <button onClick={() => pressLetter("L")} disabled={!canTypeLetter} style={btnStyle({
+            ...(!canTypeLetter ? disabledStyle : {}),
+            background: letter === "L" ? THEME.red : THEME.surface2,
+            color: letter === "L" ? "#fff" : THEME.text,
+            borderColor: letter === "L" ? THEME.red : THEME.border,
+          })}>L</button>
+          <button onClick={() => pressDigit("0")} disabled={digitsFull} style={btnStyle(digitsFull ? disabledStyle : {})}>0</button>
+          <button onClick={() => pressLetter("R")} disabled={!canTypeLetter} style={btnStyle({
+            ...(!canTypeLetter ? disabledStyle : {}),
+            background: letter === "R" ? THEME.red : THEME.surface2,
+            color: letter === "R" ? "#fff" : THEME.text,
+            borderColor: letter === "R" ? THEME.red : THEME.border,
+          })}>R</button>
+          {/* Row 5: C ⌫ (⌫ spans 2 cells for ease of tapping) */}
+          <button onClick={() => pressLetter("C")} disabled={!canTypeLetter} style={btnStyle({
+            ...(!canTypeLetter ? disabledStyle : {}),
+            background: letter === "C" ? THEME.red : THEME.surface2,
+            color: letter === "C" ? "#fff" : THEME.text,
+            borderColor: letter === "C" ? THEME.red : THEME.border,
+          })}>C</button>
+          <button onClick={pressBackspace} disabled={v.length === 0} style={btnStyle({
+            ...(v.length === 0 ? disabledStyle : {}),
+            gridColumn: "span 2",
+            background: THEME.surface2,
+            fontSize: 20,
+          })}>⌫</button>
+        </div>
+
+        <div style={{
+          fontSize: 10, color: THEME.textQuaternary, marginTop: 8,
+          textAlign: "center", fontFamily: FONT_TEXT, fontStyle: "italic",
+        }}>
+          Enter the runway number, then optionally L, C, or R.
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -3221,6 +3484,603 @@ function LessonArchive({ onBack, onSelectLesson }) {
   );
 }
 
+// ─── Weather Snapshot Tool ────────────────────────────────────────────────────
+// Pre-flight weather briefing card. Combines METAR + TAF + AIRMETs + PIREPs +
+// winds aloft into a single visually-strong overview. Sources all data from
+// aviationweather.gov (via our /api/wx serverless proxy) and labels every
+// timestamp in Central Time.
+//
+// Flight category colors follow the FAA/ForeFlight standard:
+//   VFR  = green  (#4CAF50-ish)
+//   MVFR = blue   (#3B82F6-ish)
+//   IFR  = red    (#E53E3E-ish)
+//   LIFR = magenta (#C026D3-ish)
+//
+// "Worse of ceiling or visibility" rule applied per FAA criteria:
+//   VFR:  ceiling > 3000 ft AND vis > 5 SM
+//   MVFR: ceiling 1000-3000 ft OR vis 3-5 SM
+//   IFR:  ceiling 500-<1000 ft OR vis 1-<3 SM
+//   LIFR: ceiling < 500 ft OR vis < 1 SM
+
+const FLIGHT_CAT_COLORS = {
+  VFR:  { bg: "#0E5C2D", fg: "#65D886", dot: "#3DA85B", label: "VFR",  desc: "Visual Flight Rules" },
+  MVFR: { bg: "#1E3A8A", fg: "#7AA4FF", dot: "#3B82F6", label: "MVFR", desc: "Marginal VFR" },
+  IFR:  { bg: "#7F1D1D", fg: "#FCA5A5", dot: "#E53E3E", label: "IFR",  desc: "Instrument Flight Rules" },
+  LIFR: { bg: "#581C87", fg: "#E9A3F5", dot: "#C026D3", label: "LIFR", desc: "Low IFR" },
+  UNK:  { bg: "#1F2937", fg: "#9CA3AF", dot: "#6B7280", label: "—",    desc: "Unknown" },
+};
+
+// Compute the flight category given parsed METAR data (the one from
+// parseMetarData, which already has ceilingFt + visibilitySM).
+function computeFlightCategory(parsed) {
+  if (!parsed) return "UNK";
+  const c = parsed.ceilingFt;
+  const v = parsed.visibilitySM;
+  // If no ceiling reported and no visibility, can't compute
+  if (c == null && v == null) return "UNK";
+  // LIFR: ceiling < 500 OR vis < 1
+  if ((c != null && c < 500) || (v != null && v < 1)) return "LIFR";
+  // IFR: ceiling < 1000 OR vis < 3
+  if ((c != null && c < 1000) || (v != null && v < 3)) return "IFR";
+  // MVFR: ceiling <= 3000 OR vis <= 5
+  if ((c != null && c <= 3000) || (v != null && v <= 5)) return "MVFR";
+  // Otherwise VFR
+  return "VFR";
+}
+
+// Format a Date as "h:mm a CT" using America/Chicago timezone. Returns
+// something like "9:53 AM CT" or "2:14 PM CT".
+function formatCentralTime(date) {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return "—";
+  try {
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/Chicago",
+      hour12: true,
+    }) + " CT";
+  } catch {
+    return date.toUTCString().slice(17, 22) + "Z";
+  }
+}
+
+// Format "minutes ago" — "5 min ago", "1 hr ago", "2 hr ago", etc.
+function formatAgo(date) {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) return "";
+  const mins = Math.round((Date.now() - date.getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs} hr ago`;
+}
+
+// Parse a TAF JSON response from aviationweather.gov. The response is an array
+// with one item per requested station, each containing a `fcsts` array of
+// forecast periods.
+function parseTafData(tafJson) {
+  if (!tafJson || !Array.isArray(tafJson) || tafJson.length === 0) return null;
+  const t = tafJson[0];
+  if (!t || !Array.isArray(t.fcsts)) return null;
+  const periods = t.fcsts.map(f => {
+    // Each forecast period has timeFrom/timeTo (epoch seconds), wdir, wspd,
+    // visib, clouds, wxString, etc.
+    return {
+      from: f.timeFrom ? new Date(f.timeFrom * 1000) : null,
+      to: f.timeTo ? new Date(f.timeTo * 1000) : null,
+      changeType: f.fcstChange || null, // FM, BECMG, TEMPO, PROB30, etc.
+      windDir: typeof f.wdir === "number" ? f.wdir : null,
+      windKt: typeof f.wspd === "number" ? f.wspd : null,
+      gustKt: typeof f.wgst === "number" ? f.wgst : null,
+      visibilitySM: typeof f.visib === "number" ? f.visib : (f.visib === "6+" ? 6.1 : parseFloat(f.visib) || null),
+      ceilingFt: (() => {
+        if (!Array.isArray(f.clouds)) return null;
+        let ceiling = null;
+        for (const c of f.clouds) {
+          if (c && (c.cover === "BKN" || c.cover === "OVC" || c.cover === "VV") && c.base != null) {
+            if (ceiling === null || c.base < ceiling) ceiling = c.base;
+          }
+        }
+        return ceiling;
+      })(),
+      clouds: Array.isArray(f.clouds) ? f.clouds.map(c => ({ cover: c.cover, baseFt: c.base })) : [],
+      wxString: f.wxString || "",
+    };
+  });
+  return {
+    issueTime: t.issueTime ? new Date(t.issueTime * 1000) : null,
+    validFrom: t.validTimeFrom ? new Date(t.validTimeFrom * 1000) : null,
+    validTo: t.validTimeTo ? new Date(t.validTimeTo * 1000) : null,
+    raw: t.rawTAF || "",
+    periods,
+  };
+}
+
+// Compute flight category for a TAF forecast period (same logic as METAR)
+function tafPeriodCategory(period) {
+  if (!period) return "UNK";
+  const c = period.ceilingFt;
+  const v = period.visibilitySM;
+  if (c == null && v == null) return "UNK";
+  if ((c != null && c < 500) || (v != null && v < 1)) return "LIFR";
+  if ((c != null && c < 1000) || (v != null && v < 3)) return "IFR";
+  if ((c != null && c <= 3000) || (v != null && v <= 5)) return "MVFR";
+  return "VFR";
+}
+
+// Map AIRMET/SIGMET hazard codes to plain-language labels.
+// Codes from aviationweather.gov: TURB, ICE, IFR, MTN OBSCN, CONVECTIVE, etc.
+const HAZARD_LABELS = {
+  "TURB":      "Turbulence",
+  "ICE":       "Icing",
+  "IFR":       "IFR Conditions",
+  "MTN OBSCN": "Mountain Obscuration",
+  "CONVECTIVE": "Convective Activity",
+  "ASH":       "Volcanic Ash",
+  "TS":        "Thunderstorms",
+};
+
+function WeatherSnapshot({ onBack }) {
+  const [airport, setAirport] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  // Snapshot bundle: { metar, taf, station, airsigmets, pireps }
+  const [snapshot, setSnapshot] = useState(null);
+  // For airport input chip suggestions, re-use Approach Builder history
+  const [airportHistory] = useState(() => ls.get("cfi_airports_used", []));
+
+  // ─── Fetch everything in parallel ─────────────────────────────────────────
+  async function fetchSnapshot(code) {
+    setLoading(true);
+    setError(null);
+    setSnapshot(null);
+    const apt = code.trim().toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(apt)) {
+      setError("Please enter a valid ICAO airport code (e.g., KADS).");
+      setLoading(false);
+      return;
+    }
+    try {
+      // METAR + station info are required; TAF, AIRMETs, PIREPs are best-effort.
+      // Fire all in parallel for speed.
+      const [metarRes, tafRes, stationRes, airsigmetRes] = await Promise.allSettled([
+        fetch(`/api/wx?type=metar&id=${encodeURIComponent(apt)}`).then(r => r.json()),
+        fetch(`/api/wx?type=taf&id=${encodeURIComponent(apt)}`).then(r => r.json()),
+        fetch(`/api/wx?type=stationinfo&id=${encodeURIComponent(apt)}`).then(r => r.json()),
+        fetch(`/api/wx?type=airsigmet`).then(r => r.json()),
+      ]);
+
+      const metarJson = metarRes.status === "fulfilled" ? metarRes.value : null;
+      const tafJson = tafRes.status === "fulfilled" ? tafRes.value : null;
+      const stationJson = stationRes.status === "fulfilled" ? stationRes.value : null;
+      const airsigmetJson = airsigmetRes.status === "fulfilled" ? airsigmetRes.value : null;
+
+      // Check for API-not-deployed condition
+      if (metarJson && metarJson.error && /404|not.+found|isn.+t deployed/i.test(JSON.stringify(metarJson))) {
+        throw new Error("The /api/wx function isn't deployed yet. See setup instructions.");
+      }
+
+      const metar = parseMetarData(metarJson);
+      const taf = parseTafData(tafJson);
+
+      if (!metar) {
+        setError(`No METAR data for ${apt}. This airport may not have a weather station.`);
+        setLoading(false);
+        return;
+      }
+
+      // Get station lat/lon for PIREP query
+      const station = Array.isArray(stationJson) && stationJson[0] ? stationJson[0] : null;
+      let pireps = [];
+      if (station && typeof station.lat === "number" && typeof station.lon === "number") {
+        try {
+          const pirepRes = await fetch(`/api/wx?type=pirep&lat=${station.lat}&lon=${station.lon}&radius=50`);
+          const pirepJson = await pirepRes.json();
+          if (Array.isArray(pirepJson)) pireps = pirepJson;
+        } catch {
+          // PIREPs are optional — silently ignore failures
+        }
+      }
+
+      // Filter AIRMETs/SIGMETs to those near the airport (rough bounding box check)
+      let relevantAirsigmets = [];
+      if (Array.isArray(airsigmetJson) && station) {
+        const lat = station.lat, lon = station.lon;
+        relevantAirsigmets = airsigmetJson.filter(a => {
+          // Each airsigmet may have coords array; check if airport falls inside
+          if (!Array.isArray(a.coords) || a.coords.length === 0) return false;
+          // Simple bbox check: airport lat/lon within the airsigmet's coord bbox
+          const lats = a.coords.map(c => c.lat).filter(x => typeof x === "number");
+          const lons = a.coords.map(c => c.lon).filter(x => typeof x === "number");
+          if (lats.length === 0 || lons.length === 0) return false;
+          const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+          const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+          return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
+        });
+      }
+
+      setSnapshot({
+        airport: apt,
+        fetchedAt: new Date(),
+        metar,
+        taf,
+        station,
+        pireps: Array.isArray(pireps) ? pireps : [],
+        airsigmets: relevantAirsigmets,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[wxsnapshot] fetch failed:", err);
+      setError(err.message || "Failed to fetch weather data.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ─── Rendering ────────────────────────────────────────────────────────────
+  const cat = snapshot ? computeFlightCategory(snapshot.metar) : "UNK";
+  const catColors = FLIGHT_CAT_COLORS[cat];
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+      {/* Sticky header */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <button onClick={onBack} style={{
+            background: "transparent", border: "none", color: THEME.red,
+            fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+          }}>‹ Back</button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, margin: "12px 0 6px", fontFamily: FONT_TEXT }}>
+          Weather Snapshot
+        </h1>
+        <p style={{ color: THEME.textSecondary, fontSize: 14, margin: "0 0 18px", lineHeight: 1.5, fontFamily: FONT_TEXT }}>
+          Quick pre-flight briefing card. Current conditions, forecast, and active hazards in one view.
+        </p>
+        <BetaBanner />
+
+        {/* Airport input */}
+        <Card style={{ padding: 14, marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={airport}
+              onChange={e => setAirport(e.target.value.toUpperCase())}
+              placeholder="e.g., KADS"
+              style={{
+                flex: 1, background: THEME.bg, border: `1px solid ${THEME.border}`,
+                borderRadius: 9, padding: "10px 13px",
+                color: THEME.text, fontSize: 16, fontFamily: FONT_MONO,
+                letterSpacing: 1, outline: "none",
+              }}
+            />
+            <button onClick={() => airport.trim() && fetchSnapshot(airport)} disabled={!airport.trim() || loading} style={{
+              background: airport.trim() && !loading ? THEME.red : THEME.surface2,
+              border: "none", borderRadius: 10,
+              color: airport.trim() && !loading ? "#fff" : THEME.textTertiary,
+              fontSize: 15, fontWeight: 600,
+              padding: "0 22px",
+              cursor: airport.trim() && !loading ? "pointer" : "not-allowed",
+              fontFamily: FONT_TEXT,
+              minHeight: 44, minWidth: 80,
+            }}>{loading ? "..." : "Get Briefing"}</button>
+          </div>
+          {airportHistory.length > 0 && !snapshot && (
+            <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+              {airportHistory.slice(0, 8).map(code => (
+                <button key={code} onClick={() => { setAirport(code); fetchSnapshot(code); }} style={{
+                  background: THEME.surface2, border: `0.5px solid ${THEME.border}`,
+                  borderRadius: 100, padding: "5px 11px",
+                  color: THEME.textSecondary, fontSize: 12, fontFamily: FONT_MONO,
+                  cursor: "pointer", letterSpacing: 0.5,
+                }}>{code}</button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Error */}
+        {error && (
+          <div style={{
+            padding: "12px 14px", marginBottom: 14,
+            background: `${THEME.red}15`, border: `1px solid ${THEME.red}50`,
+            borderRadius: 10, fontSize: 13, color: THEME.red, fontFamily: FONT_TEXT,
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Couldn't fetch briefing</div>
+            <div style={{ fontSize: 11, color: THEME.textSecondary }}>{error}</div>
+          </div>
+        )}
+
+        {/* Snapshot results */}
+        {snapshot && (
+          <>
+            {/* AIRMET/SIGMET banner */}
+            {snapshot.airsigmets.length > 0 && (
+              <div style={{
+                padding: "12px 14px", marginBottom: 14,
+                background: "#7F1D1D33",
+                border: `1.5px solid #E53E3E`,
+                borderRadius: 12,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>⚠️</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#FCA5A5", letterSpacing: 0.3, textTransform: "uppercase", fontFamily: FONT_TEXT }}>
+                    {snapshot.airsigmets.length} Active Advisor{snapshot.airsigmets.length === 1 ? "y" : "ies"} in Area
+                  </span>
+                </div>
+                {snapshot.airsigmets.slice(0, 3).map((a, i) => {
+                  const hazard = (a.hazard || "").toUpperCase();
+                  const label = HAZARD_LABELS[hazard] || hazard || "Advisory";
+                  return (
+                    <div key={i} style={{
+                      fontSize: 12, color: "#FECACA", lineHeight: 1.45,
+                      marginTop: i === 0 ? 0 : 6,
+                      paddingTop: i === 0 ? 0 : 6,
+                      borderTop: i === 0 ? "none" : `0.5px solid #E53E3E40`,
+                      fontFamily: FONT_TEXT,
+                    }}>
+                      <span style={{ fontWeight: 700, color: "#FCA5A5" }}>{a.airSigmetType || "AIRMET"} {a.alphaChar || ""}: {label}</span>
+                      {a.severity && <span style={{ color: "#FCA5A5", marginLeft: 6 }}>· {a.severity}</span>}
+                    </div>
+                  );
+                })}
+                {snapshot.airsigmets.length > 3 && (
+                  <div style={{ fontSize: 11, color: "#FCA5A580", marginTop: 6, fontStyle: "italic" }}>
+                    +{snapshot.airsigmets.length - 3} more
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* HERO CARD */}
+            <div style={{
+              background: `linear-gradient(160deg, ${catColors.bg} 0%, ${THEME.surface} 80%)`,
+              border: `1px solid ${catColors.dot}80`,
+              borderRadius: 16,
+              padding: "20px 18px",
+              marginBottom: 16,
+              boxShadow: `0 6px 24px ${catColors.dot}25`,
+              position: "relative",
+              overflow: "hidden",
+            }}>
+              {/* Decorative dot in corner */}
+              <div style={{
+                position: "absolute", top: -40, right: -40,
+                width: 160, height: 160, borderRadius: 80,
+                background: catColors.dot, opacity: 0.08, pointerEvents: "none",
+              }} />
+              <div style={{ position: "relative" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: THEME.textSecondary, fontFamily: FONT_TEXT, letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+                      Briefing for
+                    </div>
+                    <div style={{ fontSize: 32, fontWeight: 800, fontFamily: FONT_MONO, letterSpacing: 1, color: THEME.text, lineHeight: 1.1, marginTop: 2 }}>
+                      {snapshot.airport}
+                    </div>
+                    {snapshot.station && snapshot.station.site && (
+                      <div style={{ fontSize: 12, color: THEME.textSecondary, marginTop: 4, fontFamily: FONT_TEXT, lineHeight: 1.3 }}>
+                        {snapshot.station.site}
+                      </div>
+                    )}
+                  </div>
+                  {/* Big flight category badge */}
+                  <div style={{
+                    background: catColors.dot,
+                    color: "#fff",
+                    padding: "10px 16px",
+                    borderRadius: 12,
+                    textAlign: "center",
+                    boxShadow: `0 4px 12px ${catColors.dot}50`,
+                    flexShrink: 0,
+                  }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1.5, fontFamily: FONT_TEXT, lineHeight: 1 }}>
+                      {catColors.label}
+                    </div>
+                    <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: 0.5, marginTop: 3, opacity: 0.95, fontFamily: FONT_TEXT, textTransform: "uppercase" }}>
+                      {catColors.desc}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Observation timestamp + at-a-glance metrics */}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: `0.5px solid ${THEME.separator}` }}>
+                  <div style={{ fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_TEXT, letterSpacing: 0.4, textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>
+                    Observed {snapshot.metar.observed ? `${formatCentralTime(snapshot.metar.observed)} · ${formatAgo(snapshot.metar.observed)}` : "—"}
+                  </div>
+                  {/* Quick-look metrics grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+                    {/* Wind */}
+                    <div>
+                      <div style={{ fontSize: 9, color: THEME.textQuaternary, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600, fontFamily: FONT_TEXT }}>Wind</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: FONT_MONO, color: THEME.text, marginTop: 1 }}>
+                        {snapshot.metar.windDir === "VRB" ? "VRB" : (typeof snapshot.metar.windDir === "number" ? `${String(snapshot.metar.windDir).padStart(3, "0")}°` : "—")}
+                        {snapshot.metar.windKt != null && (
+                          <span> @ {snapshot.metar.windKt}{snapshot.metar.gustKt ? `G${snapshot.metar.gustKt}` : ""} kt</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Visibility */}
+                    <div>
+                      <div style={{ fontSize: 9, color: THEME.textQuaternary, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600, fontFamily: FONT_TEXT }}>Visibility</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: FONT_MONO, color: THEME.text, marginTop: 1 }}>
+                        {snapshot.metar.visibilitySM != null ? `${snapshot.metar.visibilitySM} SM` : "—"}
+                      </div>
+                    </div>
+                    {/* Ceiling */}
+                    <div>
+                      <div style={{ fontSize: 9, color: THEME.textQuaternary, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600, fontFamily: FONT_TEXT }}>Ceiling</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: FONT_MONO, color: THEME.text, marginTop: 1 }}>
+                        {snapshot.metar.ceilingFt != null ? `${snapshot.metar.ceilingFt} ft` : (snapshot.metar.clouds.length === 0 ? "Clear" : "Unbounded")}
+                      </div>
+                    </div>
+                    {/* Temp/Dew */}
+                    <div>
+                      <div style={{ fontSize: 9, color: THEME.textQuaternary, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600, fontFamily: FONT_TEXT }}>Temp / Dew</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: FONT_MONO, color: THEME.text, marginTop: 1 }}>
+                        {snapshot.metar.tempC != null ? `${snapshot.metar.tempC}°` : "—"}
+                        {snapshot.metar.dewpointC != null && <span style={{ color: THEME.textTertiary }}> / {snapshot.metar.dewpointC}°</span>}
+                      </div>
+                    </div>
+                    {/* Altimeter */}
+                    <div style={{ gridColumn: "span 2" }}>
+                      <div style={{ fontSize: 9, color: THEME.textQuaternary, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600, fontFamily: FONT_TEXT }}>Altimeter</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: FONT_MONO, color: THEME.text, marginTop: 1 }}>
+                        {snapshot.metar.altimInHg != null ? `${snapshot.metar.altimInHg.toFixed(2)} inHg` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TAF Forecast section */}
+            {snapshot.taf && snapshot.taf.periods.length > 0 && (
+              <>
+                <SectionLabel>Forecast (TAF)</SectionLabel>
+                <Card style={{ padding: 0, marginBottom: 16 }}>
+                  {snapshot.taf.issueTime && (
+                    <div style={{ padding: "10px 14px", borderBottom: `0.5px solid ${THEME.separator}`, fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_TEXT }}>
+                      Issued {formatCentralTime(snapshot.taf.issueTime)} · Valid through {snapshot.taf.validTo ? formatCentralTime(snapshot.taf.validTo) : "—"}
+                    </div>
+                  )}
+                  {snapshot.taf.periods.slice(0, 5).map((p, i) => {
+                    const pcat = tafPeriodCategory(p);
+                    const pc = FLIGHT_CAT_COLORS[pcat];
+                    return (
+                      <div key={i} style={{
+                        padding: "12px 14px",
+                        borderBottom: i < Math.min(snapshot.taf.periods.length, 5) - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                        display: "flex", alignItems: "flex-start", gap: 12,
+                      }}>
+                        {/* Category dot */}
+                        <div style={{
+                          width: 10, height: 10, borderRadius: 5,
+                          background: pc.dot, flexShrink: 0, marginTop: 5,
+                          boxShadow: `0 0 8px ${pc.dot}80`,
+                        }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, fontFamily: FONT_MONO, color: THEME.text }}>
+                              {p.from ? formatCentralTime(p.from) : "—"}
+                            </span>
+                            {p.changeType && (
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "2px 6px", borderRadius: 4, background: THEME.surface2, color: THEME.textSecondary, fontFamily: FONT_MONO }}>
+                                {p.changeType}
+                              </span>
+                            )}
+                            <span style={{ fontSize: 11, fontWeight: 700, color: pc.dot, fontFamily: FONT_TEXT, letterSpacing: 0.5 }}>
+                              {pc.label}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: THEME.textSecondary, fontFamily: FONT_MONO, lineHeight: 1.5 }}>
+                            {p.windDir != null && p.windKt != null && (
+                              <span>{p.windDir === "VRB" ? "VRB" : String(p.windDir).padStart(3, "0") + "°"} @ {p.windKt}{p.gustKt ? `G${p.gustKt}` : ""}kt</span>
+                            )}
+                            {p.visibilitySM != null && <span> · {p.visibilitySM}SM</span>}
+                            {p.ceilingFt != null && <span> · Ceiling {p.ceilingFt}ft</span>}
+                            {p.wxString && <span style={{ color: pc.fg }}> · {p.wxString}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {snapshot.taf.periods.length > 5 && (
+                    <div style={{ padding: "10px 14px", fontSize: 11, color: THEME.textTertiary, fontStyle: "italic", textAlign: "center", fontFamily: FONT_TEXT }}>
+                      +{snapshot.taf.periods.length - 5} more periods in TAF
+                    </div>
+                  )}
+                </Card>
+              </>
+            )}
+
+            {/* Recent PIREPs */}
+            {snapshot.pireps.length > 0 && (
+              <>
+                <SectionLabel>Recent PIREPs ({snapshot.pireps.length})</SectionLabel>
+                <Card style={{ padding: 0, marginBottom: 16 }}>
+                  {snapshot.pireps.slice(0, 4).map((p, i) => {
+                    const reportTime = p.obsTime ? new Date(p.obsTime * 1000) : null;
+                    return (
+                      <div key={i} style={{
+                        padding: "11px 14px",
+                        borderBottom: i < Math.min(snapshot.pireps.length, 4) - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: THEME.text, fontFamily: FONT_TEXT }}>
+                            {p.acType || "Aircraft"} @ {p.fltlvl ? `FL${p.fltlvl}` : (p.altitude ? `${p.altitude}ft` : "—")}
+                          </span>
+                          <span style={{ fontSize: 10, color: THEME.textTertiary, fontFamily: FONT_MONO }}>
+                            {reportTime ? formatAgo(reportTime) : ""}
+                          </span>
+                        </div>
+                        {p.rawOb && (
+                          <div style={{ fontSize: 11, color: THEME.textSecondary, fontFamily: FONT_MONO, lineHeight: 1.45, wordBreak: "break-word" }}>
+                            {p.rawOb}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {snapshot.pireps.length > 4 && (
+                    <div style={{ padding: "10px 14px", fontSize: 11, color: THEME.textTertiary, fontStyle: "italic", textAlign: "center", fontFamily: FONT_TEXT }}>
+                      +{snapshot.pireps.length - 4} more reports in area
+                    </div>
+                  )}
+                </Card>
+              </>
+            )}
+
+            {/* Raw METAR for reference */}
+            <SectionLabel>Raw METAR</SectionLabel>
+            <Card style={{ padding: "12px 14px", marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontFamily: FONT_MONO, color: THEME.textSecondary, wordBreak: "break-all", lineHeight: 1.5 }}>
+                {snapshot.metar.raw || "—"}
+              </div>
+            </Card>
+
+            {/* Sourcing footer */}
+            <div style={{
+              marginTop: 12, padding: "14px",
+              background: THEME.surface, borderRadius: 11,
+              border: `0.5px solid ${THEME.border}`,
+            }}>
+              <div style={{ fontSize: 11, color: THEME.textTertiary, lineHeight: 1.6, fontFamily: FONT_TEXT }}>
+                <div style={{ fontWeight: 600, color: THEME.textSecondary, marginBottom: 4 }}>
+                  Data Sources
+                </div>
+                <div>Weather data from <span style={{ color: THEME.textSecondary, fontFamily: FONT_MONO }}>aviationweather.gov</span> (NOAA / NWS).</div>
+                <div style={{ marginTop: 4 }}>
+                  Briefing pulled at <span style={{ color: THEME.textSecondary, fontFamily: FONT_MONO }}>{formatCentralTime(snapshot.fetchedAt)}</span>.
+                </div>
+                <div style={{ marginTop: 4 }}>METAR observed at <span style={{ color: THEME.textSecondary, fontFamily: FONT_MONO }}>{snapshot.metar.observed ? formatCentralTime(snapshot.metar.observed) : "—"}</span>.</div>
+                {snapshot.taf && snapshot.taf.issueTime && (
+                  <div style={{ marginTop: 4 }}>TAF issued at <span style={{ color: THEME.textSecondary, fontFamily: FONT_MONO }}>{formatCentralTime(snapshot.taf.issueTime)}</span>.</div>
+                )}
+              </div>
+              <button onClick={() => fetchSnapshot(snapshot.airport)} style={{
+                marginTop: 12, width: "100%", padding: "10px",
+                background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                borderRadius: 9, color: THEME.text,
+                fontSize: 13, fontWeight: 600,
+                cursor: "pointer", fontFamily: FONT_TEXT,
+                minHeight: 40,
+              }}>↻ Refresh Briefing</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const APPROACH_CONFIG = {
   "ILS":      { mins: [] },
   "LOC":      { mins: [] },
@@ -3248,6 +4108,8 @@ function ApproachBuilder({ onInsert, editMode }) {
   // formatting doesn't fit the structured fields.
   const [customMode, setCustomMode] = useState(false);
   const [customText, setCustomText] = useState("");
+  // Which runway field has the custom keypad open ("runway" | "circle" | null)
+  const [keypadTarget, setKeypadTarget] = useState(null);
 
   function selectAirport(code) {
     setAirport(code);
@@ -3471,23 +4333,19 @@ function ApproachBuilder({ onInsert, editMode }) {
             ))}
           </div>
         )}
-        <input value={runway}
-          onChange={e => {
-            // Strip all non-digits, max 2 chars (runways are 01-36)
-            const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
-            setRunway(digits);
-          }}
-          placeholder="Runway number (e.g. 16)"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          style={{
-            width: "100%", boxSizing: "border-box",
-            background: THEME.surface2, border: `1px solid ${runway ? THEME.red : THEME.border}`,
-            borderRadius: 10, padding: "10px 13px",
-            color: THEME.text, fontSize: 14,
-            fontFamily: FONT_MONO, letterSpacing: 0.3,
-            outline: "none", transition: "border-color 0.15s",
-          }} />
+        {/* Tappable display in place of an input — prevents the iOS system
+            keyboard from appearing and instead opens the custom RunwayKeypad
+            at the bottom of the screen. Styled identically to a real input
+            so the layout is unchanged. */}
+        <button onClick={() => setKeypadTarget("runway")} style={{
+          width: "100%", textAlign: "left", boxSizing: "border-box",
+          background: THEME.surface2, border: `1px solid ${runway ? THEME.red : THEME.border}`,
+          borderRadius: 10, padding: "10px 13px",
+          color: runway ? THEME.text : THEME.textQuaternary, fontSize: 14,
+          fontFamily: FONT_MONO, letterSpacing: 0.3,
+          cursor: "pointer", outline: "none", transition: "border-color 0.15s",
+          minHeight: 42,
+        }}>{runway || "Runway number (e.g. 16L)"}</button>
       </div>
 
       {/* Approach type */}
@@ -3570,22 +4428,16 @@ function ApproachBuilder({ onInsert, editMode }) {
                   ))}
                 </div>
               )}
-              <input value={circleRunway}
-                onChange={e => {
-                  const digits = e.target.value.replace(/\D/g, "").slice(0, 2);
-                  setCircleRunway(digits);
-                }}
-                placeholder="Runway number (e.g. 18)"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                style={{
-                  width: "100%", boxSizing: "border-box",
-                  background: THEME.surface2, border: `1px solid ${circleRunway ? THEME.red : THEME.border}`,
-                  borderRadius: 10, padding: "10px 13px",
-                  color: THEME.text, fontSize: 14,
-                  fontFamily: FONT_MONO, letterSpacing: 0.3,
-                  outline: "none", transition: "border-color 0.15s",
-                }} />
+              {/* Tappable display — opens RunwayKeypad for circle-to runway */}
+              <button onClick={() => setKeypadTarget("circle")} style={{
+                width: "100%", textAlign: "left", boxSizing: "border-box",
+                background: THEME.surface2, border: `1px solid ${circleRunway ? THEME.red : THEME.border}`,
+                borderRadius: 10, padding: "10px 13px",
+                color: circleRunway ? THEME.text : THEME.textQuaternary, fontSize: 14,
+                fontFamily: FONT_MONO, letterSpacing: 0.3,
+                cursor: "pointer", outline: "none", transition: "border-color 0.15s",
+                minHeight: 42,
+              }}>{circleRunway || "Runway number (e.g. 18L)"}</button>
             </div>
           )}
         </div>
@@ -3672,6 +4524,20 @@ function ApproachBuilder({ onInsert, editMode }) {
         boxShadow: (customMode ? customText.trim() : canInsert) ? `0 4px 16px ${THEME.redGlow}` : "none",
         transition: "all 0.2s",
       }}>+ Add Approach Note</button>
+
+      {/* Custom keypad — renders only when a runway field requested it. The
+          keypad is a fixed-position overlay so it floats above the rest of
+          the lesson page regardless of scroll position. */}
+      {keypadTarget && (
+        <RunwayKeypad
+          value={keypadTarget === "runway" ? runway : circleRunway}
+          onChange={v => {
+            if (keypadTarget === "runway") setRunway(v);
+            else setCircleRunway(v);
+          }}
+          onClose={() => setKeypadTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -5328,24 +6194,47 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
   // Build text for clipboard — notes ONLY (clean, focused)
+  // Build the clipboard text — the format optimized for pasting into Flight
+  // Schedule Pro's comment field, which strips line breaks on save. The format
+  // is engineered to look structured even when smushed onto one paragraph:
+  //   - Approach notes appear FIRST (grouped) with ✈ as the anchor character
+  //   - Other topic notes appear after, with ■ as a stronger anchor
+  //   - Sub-bullets under BOTH approaches and topics use "   ▸ " — a single
+  //     triangle marker that reads cleanly when smushed and visually nests
+  //     under either parent
+  //   - Each header is bolded via Unicode Mathematical Sans-Serif Bold so the
+  //     visual emphasis survives plain-text storage (FSP renders them as
+  //     bold-looking text without needing rich-text formatting)
+  //   - Items separated by blank lines so the multi-line view (when nothing
+  //     strips line breaks) is also pleasant to read
+  //
+  // Mixed case (not all-caps) is intentional — the Unicode bolding provides
+  // the visual emphasis, so we don't need to yell with capitals on top of it.
   function buildClipboardText() {
-    const lines = [];
     if (!notes.length) return "";
+    // Partition into approaches and non-approaches, preserving original order
+    // within each group.
+    const approaches = [];
+    const topics = [];
     notes.forEach(n => {
       const text = typeof n === "string" ? n : n.text;
       const subs = typeof n === "string" ? [] : (n.subs || []);
       const isApproach = typeof n !== "string" && n.isApproach;
-      if (isApproach) {
-        // Approaches use an airplane icon
-        lines.push(`✈ ${text}`);
-      } else {
-        // Other main notes use a small triangle
-        lines.push(`▸ ${text}`);
-      }
-      // Sub-bullets use a small indented bullet
-      subs.forEach(s => lines.push(`   • ${s}`));
+      const bucket = isApproach ? approaches : topics;
+      bucket.push({ text, subs, isApproach });
     });
-    return lines.join("\n");
+    const renderItem = (item) => {
+      const prefix = item.isApproach ? "✈" : "■";
+      const heading = toUnicodeBold(item.text);
+      const lines = [`${prefix} ${heading}`];
+      // Sub-bullets use ▸ for visual consistency under both approach and topic
+      // headers — a single sub-bullet marker reads cleanly when smushed.
+      item.subs.forEach(s => lines.push(`   ▸ ${s}`));
+      return lines.join("\n");
+    };
+    const blocks = [...approaches, ...topics].map(renderItem);
+    // Join blocks with blank lines between them so multi-line view breathes.
+    return blocks.join("\n\n");
   }
 
   // Build full text for archive — student info, HOBBS, topics, AND notes
@@ -5685,7 +6574,13 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
             .map(id => <div key={id}>{renderTool(id)}</div>);
         })()}
 
-        {/* Actions */}
+        {/* Actions — split into two rows so the four buttons each get enough
+            touch area. Row 1: copy variants. Row 2: save + clear. The destructive
+            Clear is visually separated from Save by being on a different row,
+            reducing misstap risk. */}
+        {/* Actions — Copy Notes, Save Lesson, Clear in one row. The destructive
+            Clear button has a more receding visual treatment to reduce misstap
+            risk. */}
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <button onClick={copyAll} style={{
             flex: 1,
@@ -5872,23 +6767,31 @@ function PastLessonsList({ student, onBack, onSelectLesson }) {
 function PastLessonDetail({ lesson, onBack, onEdit }) {
   const [copied, setCopied] = useState(false);
 
-  // Build notes-only clipboard text from the archived lesson — matches Copy Notes format
+  // Build the clipboard text from this archived lesson. Uses the same
+  // FSP-friendly format as the live lesson view: approaches grouped first
+  // with ✈, topics with ■, sub-bullets with ▸, Unicode-bolded headers.
+  // See buildClipboardText in NotesApp for design rationale.
   function buildNotesOnly() {
     const archivedNotes = lesson.notes || [];
     if (!archivedNotes.length) return "";
-    const lines = [];
+    const approaches = [];
+    const topics = [];
     archivedNotes.forEach(n => {
       const text = typeof n === "string" ? n : n.text;
       const subs = typeof n === "string" ? [] : (n.subs || []);
       const isApproach = typeof n !== "string" && n.isApproach;
-      if (isApproach) {
-        lines.push(`✈ ${text}`);
-      } else {
-        lines.push(`▸ ${text}`);
-      }
-      subs.forEach(s => lines.push(`   • ${s}`));
+      const bucket = isApproach ? approaches : topics;
+      bucket.push({ text, subs, isApproach });
     });
-    return lines.join("\n");
+    const renderItem = (item) => {
+      const prefix = item.isApproach ? "✈" : "■";
+      const heading = toUnicodeBold(item.text);
+      const lines = [`${prefix} ${heading}`];
+      item.subs.forEach(s => lines.push(`   ▸ ${s}`));
+      return lines.join("\n");
+    };
+    const blocks = [...approaches, ...topics].map(renderItem);
+    return blocks.join("\n\n");
   }
 
   function copyAgain() {
@@ -6159,7 +7062,8 @@ function PastLessonDetail({ lesson, onBack, onEdit }) {
           </Card>
         )}
 
-        <div style={{ display: "flex", gap: 10 }}>
+        {/* Action buttons — Copy Again + Edit Lesson on one row. */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
           <button onClick={copyAgain} style={{
             flex: 1,
             background: copied ? THEME.green : THEME.red,
@@ -7327,6 +8231,9 @@ export default function App() {
   if (view.type === "wxmins") {
     return <WeatherMinimums onBack={() => setView({ type: "selector" })} />;
   }
+  if (view.type === "wxsnap") {
+    return <WeatherSnapshot onBack={() => setView({ type: "selector" })} />;
+  }
   if (view.type === "archive") {
     return <LessonArchive
       onBack={() => setView({ type: "selector" })}
@@ -7361,6 +8268,7 @@ export default function App() {
     onOpenDayNight={() => setView({ type: "daynight" })}
     onOpenXCPlanner={() => setView({ type: "xcplanner" })}
     onOpenWxMins={() => setView({ type: "wxmins" })}
+    onOpenWxSnap={() => setView({ type: "wxsnap" })}
     onOpenArchive={() => setView({ type: "archive" })}
   />;
 }
