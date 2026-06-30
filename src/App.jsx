@@ -446,6 +446,14 @@ const DEFAULT_SNIPPETS = {
   CFII: SHARED_SNIPPETS,
 };
 
+// Memory Items is a GLOBAL snippet category — shared across every training type
+// and stage, unlike Maneuvers/Takeoffs/Landings which stay per-training-type.
+// It lives in its own storage key (not inside cfi_snippets_<TYPE>) so editing it
+// anywhere updates it everywhere. MEMORY_GROUP is the category name used in the
+// in-memory snippets object; MEMORY_KEY is the localStorage key.
+const MEMORY_GROUP = "Memory Items";
+const MEMORY_KEY = "cfi_memory_items";
+
 // ─── Storage ──────────────────────────────────────────────────────────────────
 const ls = {
   get: (k, fb) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch { return fb; } },
@@ -669,6 +677,16 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight, onOpenXCPlan
     if (!name.trim() || !stage) return;
     const s = { id: Date.now().toString(), name: name.trim(), trainingType: type, stage, retrain, oneTime };
     if (!oneTime) { const u = [s, ...students]; setStudents(u); ls.set("cfi_students", u); }
+    onSelect(s);
+  }
+
+  // Tapping a student to start a lesson moves them to the top of the roster so
+  // the people you're actively working with float up. Persisted to localStorage
+  // so the order survives navigation and app restarts.
+  function selectStudent(s) {
+    const reordered = [s, ...students.filter(x => x.id !== s.id)];
+    setStudents(reordered);
+    ls.set("cfi_students", reordered);
     onSelect(s);
   }
 
@@ -905,7 +923,7 @@ function StudentSelector({ onSelect, onViewHistory, onOpenDayNight, onOpenXCPlan
                   padding: "14px 16px",
                   borderBottom: i < students.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
                 }}>
-                  <div onClick={() => onSelect(s)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", minWidth: 0 }}>
+                  <div onClick={() => selectStudent(s)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", minWidth: 0 }}>
                     <div style={{
                       width: 38, height: 38, borderRadius: 19,
                       background: THEME.redDim,
@@ -3038,7 +3056,26 @@ function ApproachBuilder({ onInsert, editMode }) {
 function NotesSection({ trainingType, notes, setNotes }) {
   const snippetKey = `cfi_snippets_${trainingType}`;
 
-  const [snippets, setSnippets] = useState(() => ls.get(snippetKey, DEFAULT_SNIPPETS[trainingType]));
+  const [snippets, setSnippets] = useState(() => {
+    // Per-type categories (Maneuvers/Takeoffs/Landings + any custom). Memory
+    // Items is global, so strip whatever might be in the per-type store and
+    // append the global list at the end (its conventional last position).
+    const perType = ls.get(snippetKey, DEFAULT_SNIPPETS[trainingType]);
+    const base = { ...perType };
+    delete base[MEMORY_GROUP];
+    const globalMem = ls.get(MEMORY_KEY, SHARED_SNIPPETS[MEMORY_GROUP]);
+    return { ...base, [MEMORY_GROUP]: globalMem };
+  });
+  // Persist snippet changes, splitting the global Memory Items out to its own
+  // key and keeping the per-type categories in cfi_snippets_<TYPE>. Every
+  // snippet mutation goes through here so the split stays consistent.
+  function persistSnippets(updated) {
+    setSnippets(updated);
+    ls.set(MEMORY_KEY, updated[MEMORY_GROUP] || []);
+    const perType = { ...updated };
+    delete perType[MEMORY_GROUP];
+    ls.set(snippetKey, perType);
+  }
   // Default the active tab to "Approach" (the always-present approach builder tab).
   // It's the most commonly used and is always available regardless of training type.
   const [activeGroup, setActiveGroup] = useState("Approach");
@@ -3048,6 +3085,12 @@ function NotesSection({ trainingType, notes, setNotes }) {
   const [editingIdx, setEditingIdx] = useState(null);
   const [editVal, setEditVal] = useState("");
   const [newSnippetVal, setNewSnippetVal] = useState("");
+  // Builder state for adding a snippet WITH sub-bullets (structured memory
+  // items). `newSnippetSubs` holds the sub-bullets queued for the snippet being
+  // built; `newSubVal` is the current sub-bullet input. If no subs are added,
+  // the snippet is saved as a plain string (backward compatible).
+  const [newSnippetSubs, setNewSnippetSubs] = useState([]);
+  const [newSubVal, setNewSubVal] = useState("");
   const [editingCategory, setEditingCategory] = useState(null); // category being renamed
   const [categoryEditVal, setCategoryEditVal] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -3070,6 +3113,10 @@ function NotesSection({ trainingType, notes, setNotes }) {
   // Note about to be deleted — shows inline Delete/Cancel buttons
   const [confirmRemoveNote, setConfirmRemoveNote] = useState(null); // note index
   const [confirmRemoveSub, setConfirmRemoveSub] = useState(null); // { noteIdx, subIdx }
+  // Inline editing of an existing sub-bullet on a note. editingSub holds
+  // { noteIdx, subIdx } of the sub being edited (or null); editSubVal is its text.
+  const [editingSub, setEditingSub] = useState(null);
+  const [editSubVal, setEditSubVal] = useState("");
 
   const groups = ["Approach", ...Object.keys(snippets)];
   const isApproachTab = activeGroup === "Approach";
@@ -3284,6 +3331,23 @@ function NotesSection({ trainingType, notes, setNotes }) {
       return { ...obj, subs: obj.subs.filter((_, si) => si !== subIdx) };
     }));
   }
+  // Replace the text of an existing sub-bullet. If the new text is empty the
+  // sub-bullet is removed instead (so clearing it acts like a delete).
+  function updateSubBullet(noteIdx, subIdx, newText) {
+    const trimmed = (newText || "").trim();
+    if (!trimmed) { removeSubBullet(noteIdx, subIdx); return; }
+    setNotes(n => n.map((note, idx) => {
+      if (idx !== noteIdx) return note;
+      const obj = typeof note === "string" ? { text: note, subs: [] } : note;
+      return { ...obj, subs: obj.subs.map((s, si) => si === subIdx ? trimmed : s) };
+    }));
+  }
+  function saveSubEdit() {
+    if (!editingSub) return;
+    updateSubBullet(editingSub.noteIdx, editingSub.subIdx, editSubVal);
+    setEditingSub(null);
+    setEditSubVal("");
+  }
   function addCustomNote() {
     if (!customNote.trim()) return;
     addNote(customNote.trim());
@@ -3297,18 +3361,36 @@ function NotesSection({ trainingType, notes, setNotes }) {
       if (s && typeof s === "object") return { ...s, text: val };
       return val;
     }) };
-    setSnippets(updated); ls.set(snippetKey, updated);
+    persistSnippets(updated);
     setEditingIdx(null);
   }
   function deleteSnippet(group, idx) {
     const updated = { ...snippets, [group]: snippets[group].filter((_, i) => i !== idx) };
-    setSnippets(updated); ls.set(snippetKey, updated);
+    persistSnippets(updated);
   }
   function addSnippetToGroup(group) {
-    if (!newSnippetVal.trim()) return;
-    const updated = { ...snippets, [group]: [...(snippets[group] || []), newSnippetVal.trim()] };
-    setSnippets(updated); ls.set(snippetKey, updated);
+    const header = newSnippetVal.trim();
+    if (!header) return;
+    // If sub-bullets were added, store as a structured object { text, subs };
+    // otherwise store as a plain string (backward compatible with all the
+    // existing flat snippets).
+    const subs = newSnippetSubs.map(s => s.trim()).filter(Boolean);
+    const entry = subs.length ? { text: header, subs } : header;
+    const updated = { ...snippets, [group]: [...(snippets[group] || []), entry] };
+    persistSnippets(updated);
     setNewSnippetVal("");
+    setNewSnippetSubs([]);
+    setNewSubVal("");
+  }
+  // Queue a sub-bullet onto the snippet currently being built.
+  function addPendingSub() {
+    const v = newSubVal.trim();
+    if (!v) return;
+    setNewSnippetSubs(prev => [...prev, v]);
+    setNewSubVal("");
+  }
+  function removePendingSub(idx) {
+    setNewSnippetSubs(prev => prev.filter((_, i) => i !== idx));
   }
   function renameCategory(oldName, newName) {
     const trimmed = newName.trim();
@@ -3321,7 +3403,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
     Object.keys(snippets).forEach(k => {
       updated[k === oldName ? trimmed : k] = snippets[k];
     });
-    setSnippets(updated); ls.set(snippetKey, updated);
+    persistSnippets(updated);
     if (activeGroup === oldName) setActiveGroup(trimmed);
     setEditingCategory(null);
   }
@@ -3329,14 +3411,14 @@ function NotesSection({ trainingType, notes, setNotes }) {
     if (!window.confirm(`Delete the "${name}" category and all its snippets?`)) return;
     const updated = { ...snippets };
     delete updated[name];
-    setSnippets(updated); ls.set(snippetKey, updated);
+    persistSnippets(updated);
     if (activeGroup === name) setActiveGroup("Approach");
   }
   function addCategory() {
     const trimmed = newCategoryName.trim();
     if (!trimmed || snippets[trimmed]) return;
     const updated = { ...snippets, [trimmed]: [] };
-    setSnippets(updated); ls.set(snippetKey, updated);
+    persistSnippets(updated);
     setActiveGroup(trimmed);
     setNewCategoryName("");
     setShowAddCategory(false);
@@ -3389,7 +3471,7 @@ function NotesSection({ trainingType, notes, setNotes }) {
             {groups.map(g => {
               const isActive = activeGroup === g;
               const isEditingThis = editingCategory === g;
-              const isProtected = g === "Approach";
+              const isProtected = g === "Approach" || g === MEMORY_GROUP;
               const canEdit = editMode && !isProtected;
 
               if (isEditingThis) {
@@ -3560,19 +3642,61 @@ function NotesSection({ trainingType, notes, setNotes }) {
             })}
 
             {editMode && activeGroup !== "Approach" && (
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                <input value={newSnippetVal} onChange={e => setNewSnippetVal(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addSnippetToGroup(activeGroup)}
-                  placeholder={`Add snippet to ${activeGroup}`}
-                  style={{
-                    flex: 1, background: THEME.surface2, border: `1px solid ${THEME.border}`,
-                    borderRadius: 10, padding: "10px 13px",
-                    color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT, outline: "none",
-                  }} />
-                <button onClick={() => addSnippetToGroup(activeGroup)} style={{
-                  background: THEME.red, border: "none", borderRadius: 10,
-                  color: "#fff", fontWeight: 600, fontSize: 18, width: 42, cursor: "pointer",
-                }}>+</button>
+              <div style={{ marginTop: 12, padding: "12px", background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 12 }}>
+                {/* Header input + main Add button */}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={newSnippetVal} onChange={e => setNewSnippetVal(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addSnippetToGroup(activeGroup)}
+                    placeholder={`Add to ${activeGroup}`}
+                    style={{
+                      flex: 1, background: THEME.bg, border: `1px solid ${THEME.border}`,
+                      borderRadius: 10, padding: "10px 13px",
+                      color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT, outline: "none",
+                    }} />
+                  <button onClick={() => addSnippetToGroup(activeGroup)} style={{
+                    background: THEME.red, border: "none", borderRadius: 10,
+                    color: "#fff", fontWeight: 600, fontSize: 13, padding: "0 16px",
+                    cursor: "pointer", whiteSpace: "nowrap", fontFamily: FONT_TEXT,
+                  }}>Add</button>
+                </div>
+
+                {/* Pending sub-bullets queued for this item */}
+                {newSnippetSubs.length > 0 && (
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {newSnippetSubs.map((sub, idx) => (
+                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 4 }}>
+                        <span style={{ color: THEME.red, fontSize: 13, flexShrink: 0 }}>▸</span>
+                        <span style={{ flex: 1, fontSize: 13, color: THEME.textSecondary, fontFamily: FONT_TEXT, minWidth: 0 }}>{sub}</span>
+                        <button onClick={() => removePendingSub(idx)} aria-label="Remove sub-point" style={{
+                          flexShrink: 0, background: "transparent", border: "none",
+                          color: THEME.textQuaternary, fontSize: 17, cursor: "pointer", lineHeight: 1, padding: "2px 6px",
+                        }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Sub-bullet input — adds to the pending list above */}
+                <div style={{ display: "flex", gap: 6, marginTop: 8, paddingLeft: 4 }}>
+                  <input value={newSubVal} onChange={e => setNewSubVal(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addPendingSub()}
+                    placeholder="Add a sub-point (optional)"
+                    style={{
+                      flex: 1, background: THEME.bg, border: `1px solid ${THEME.border}`,
+                      borderRadius: 9, padding: "8px 12px",
+                      color: THEME.text, fontSize: 13, fontFamily: FONT_TEXT, outline: "none",
+                    }} />
+                  <button onClick={addPendingSub} style={{
+                    background: "transparent", border: `1px solid ${THEME.border}`,
+                    borderRadius: 9, color: THEME.textSecondary,
+                    fontWeight: 600, fontSize: 13, padding: "0 12px", cursor: "pointer",
+                    whiteSpace: "nowrap", fontFamily: FONT_TEXT,
+                  }}>+ Sub</button>
+                </div>
+
+                <div style={{ marginTop: 8, fontSize: 11, color: THEME.textTertiary, fontStyle: "italic", fontFamily: FONT_TEXT, lineHeight: 1.4 }}>
+                  Type a title, optionally add sub-points, then tap Add. Tapping the saved item later drops it into your notes with all its sub-points.
+                </div>
               </div>
             )}
           </div>
@@ -3689,7 +3813,19 @@ function NotesSection({ trainingType, notes, setNotes }) {
                 color: THEME.text, fontFamily: FONT_TEXT,
                 lineHeight: 1.4, letterSpacing: -0.3,
               }}>{text}</span>
-              <button onClick={() => { setActiveSubInputIdx(isAddingSub ? null : i); setSubInputText(""); }}
+              <button onClick={() => {
+                  if (isAddingSub) {
+                    // Closing the sub-bullet input — save whatever was typed
+                    // first so hitting "Done" doesn't discard an in-progress
+                    // sub-point (this was the reported bug).
+                    if (subInputText.trim()) addSubBullet(i, subInputText.trim());
+                    setActiveSubInputIdx(null);
+                    setSubInputText("");
+                  } else {
+                    setActiveSubInputIdx(i);
+                    setSubInputText("");
+                  }
+                }}
                 title="Add sub-bullet"
                 style={{
                   background: isAddingSub ? THEME.red : "transparent",
@@ -3715,23 +3851,50 @@ function NotesSection({ trainingType, notes, setNotes }) {
             {/* Sub-bullets */}
             {(hasSubs || isAddingSub) && !isDragging && (
               <div style={{ marginLeft: 28, marginTop: 6 }}>
-                {subs.map((sub, si) => (
+                {subs.map((sub, si) => {
+                  const isEditingThisSub = editingSub && editingSub.noteIdx === i && editingSub.subIdx === si;
+                  return (
                   <div key={si} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 0" }}>
                     <span style={{ color: THEME.textTertiary, fontSize: 13, marginTop: 2, flexShrink: 0 }}>•</span>
-                    <span style={{ flex: 1, fontSize: 14, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.5 }}>{sub}</span>
-                    {confirmRemoveSub && confirmRemoveSub.noteIdx === i && confirmRemoveSub.subIdx === si ? (
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => { removeSubBullet(i, si); setConfirmRemoveSub(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 12px", minHeight: 34, cursor: "pointer" }}>Delete</button>
-                        <button onClick={() => setConfirmRemoveSub(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "8px 12px", minHeight: 34, cursor: "pointer" }}>Cancel</button>
-                      </div>
+                    {isEditingThisSub ? (
+                      <>
+                        <input value={editSubVal} onChange={e => setEditSubVal(e.target.value)} autoFocus
+                          onKeyDown={e => {
+                            if (e.key === "Enter") saveSubEdit();
+                            if (e.key === "Escape") { setEditingSub(null); setEditSubVal(""); }
+                          }}
+                          style={{
+                            flex: 1, background: THEME.surface2, border: `1px solid ${THEME.red}60`,
+                            borderRadius: 9, padding: "7px 11px",
+                            color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT, outline: "none",
+                          }} />
+                        <button onClick={saveSubEdit} style={{
+                          background: THEME.red, border: "none", borderRadius: 9,
+                          color: "#fff", fontWeight: 600, fontSize: 12,
+                          padding: "8px 12px", minHeight: 34, cursor: "pointer", flexShrink: 0,
+                        }}>Save</button>
+                      </>
                     ) : (
-                      <button onClick={() => setConfirmRemoveSub({ noteIdx: i, subIdx: si })} aria-label="Remove sub-bullet" style={{
-                        background: "transparent", border: "none", color: THEME.textQuaternary,
-                        cursor: "pointer", fontSize: 17, padding: "8px 10px", flexShrink: 0, lineHeight: 1,
-                      }}>×</button>
+                      <>
+                        {/* Tap the sub-bullet text to edit it inline */}
+                        <span onClick={() => { setEditingSub({ noteIdx: i, subIdx: si }); setEditSubVal(sub); }}
+                          style={{ flex: 1, fontSize: 14, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.5, cursor: "text" }}>{sub}</span>
+                        {confirmRemoveSub && confirmRemoveSub.noteIdx === i && confirmRemoveSub.subIdx === si ? (
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => { removeSubBullet(i, si); setConfirmRemoveSub(null); }} style={{ background: THEME.red, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 12px", minHeight: 34, cursor: "pointer" }}>Delete</button>
+                            <button onClick={() => setConfirmRemoveSub(null)} style={{ background: THEME.surface2, border: `1px solid ${THEME.border}`, borderRadius: 8, color: THEME.textSecondary, fontSize: 12, padding: "8px 12px", minHeight: 34, cursor: "pointer" }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmRemoveSub({ noteIdx: i, subIdx: si })} aria-label="Remove sub-bullet" style={{
+                            background: "transparent", border: "none", color: THEME.textQuaternary,
+                            cursor: "pointer", fontSize: 17, padding: "8px 10px", flexShrink: 0, lineHeight: 1,
+                          }}>×</button>
+                        )}
+                      </>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 {isAddingSub && (
                   <div style={{ display: "flex", gap: 6, marginTop: hasSubs ? 6 : 2 }}>
                     <input value={subInputText} onChange={e => setSubInputText(e.target.value)}
@@ -4955,6 +5118,10 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
     const lesson = {
       id: lessonId,
       timestamp: originalTimestamp || Date.now(),
+      // updatedAt bumps on EVERY save (including edits and auto-drafts), while
+      // `timestamp` stays fixed at creation. History sorts by updatedAt so the
+      // most recently touched lesson floats to the top.
+      updatedAt: Date.now(),
       dateLabel: today,
       hobbs,
       topics,
@@ -5333,14 +5500,252 @@ function NotesApp({ student, onBack, onViewHistory, onOpenDayNight, onOpenSettin
 
 // ─── Past Lessons List ────────────────────────────────────────────────────────
 
+function LessonArchive({ onBack, onSelectLesson }) {
+  // Scan localStorage for every cfi_lessons_* key and merge into one list.
+  // Each entry retains its parent studentId so we can write back to the right
+  // key on delete.
+  const [entries, setEntries] = useState(() => {
+    const all = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith("cfi_lessons_")) continue;
+        const studentId = key.slice("cfi_lessons_".length);
+        const lessons = ls.get(key, []);
+        if (!Array.isArray(lessons)) continue;
+        for (const lesson of lessons) {
+          all.push({ lesson, studentId });
+        }
+      }
+    } catch (err) {
+      // If localStorage is inaccessible we just show empty — not worth crashing the UI
+      // eslint-disable-next-line no-console
+      console.error("[archive] failed to read localStorage:", err);
+    }
+    // Sort by most recently edited first — newest activity on top, drafts no
+    // longer forced above finalized lessons. Falls back to creation timestamp
+    // for lessons saved before updatedAt existed.
+    all.sort((a, b) => {
+      const aT = a.lesson.updatedAt || a.lesson.timestamp || 0;
+      const bT = b.lesson.updatedAt || b.lesson.timestamp || 0;
+      return bT - aT;
+    });
+    return all;
+  });
+
+  const [confirmDelete, setConfirmDelete] = useState(null); // lesson id
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Pull the active roster so we can mark which lessons belong to current students
+  // vs orphans (one-time or deleted)
+  const rosterIds = useState(() => {
+    const roster = ls.get("cfi_students", []);
+    return new Set(roster.map(s => s.id));
+  })[0];
+
+  function deleteLesson(studentId, lessonId) {
+    const archiveKey = `cfi_lessons_${studentId}`;
+    const existing = ls.get(archiveKey, []);
+    const remaining = existing.filter(l => l.id !== lessonId);
+    if (remaining.length === 0) {
+      // Clean up empty archive key entirely
+      try { localStorage.removeItem(archiveKey); } catch {}
+    } else {
+      ls.set(archiveKey, remaining);
+    }
+    setEntries(entries.filter(e => e.lesson.id !== lessonId));
+    setConfirmDelete(null);
+  }
+
+  function lessonSummary(l) {
+    const bits = [];
+    if (l.topics?.length) bits.push(`${l.topics.length} topic${l.topics.length === 1 ? "" : "s"}`);
+    if (l.notes?.length) bits.push(`${l.notes.length} note${l.notes.length === 1 ? "" : "s"}`);
+    if (l.hobbs?.total) bits.push(`${l.hobbs.total} hrs`);
+    return bits.join(" · ") || "—";
+  }
+
+  function formatDate(ts) {
+    if (!ts) return "Unknown date";
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (sameDay) return `Today · ${time}`;
+    if (isYesterday) return `Yesterday · ${time}`;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + ` · ${time}`;
+  }
+
+  // Filter entries by search query (matches student name)
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? entries.filter(({ lesson }) => {
+        const name = (lesson.studentSnapshot?.name || "").toLowerCase();
+        return name.includes(q);
+      })
+    : entries;
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.bg, color: THEME.text, fontFamily: FONT_TEXT, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+      <div style={{
+        position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(0,0,0,0.85)",
+        backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderBottom: `0.5px solid ${THEME.separator}`,
+        paddingTop: "env(safe-area-inset-top, 0px)",
+      }}>
+        <div style={{ maxWidth: 580, margin: "0 auto", padding: "12px 16px" }}>
+          <button onClick={onBack} style={{
+            background: "transparent", border: "none", color: THEME.red,
+            fontSize: 16, cursor: "pointer", padding: "4px 0", fontFamily: FONT_TEXT,
+          }}>‹ Back</button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 580, margin: "0 auto", padding: "16px" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.6, margin: "12px 0 6px", fontFamily: FONT_TEXT }}>Lesson Archive</h1>
+        <p style={{ color: THEME.textSecondary, fontSize: 14, margin: "0 0 18px", lineHeight: 1.5, fontFamily: FONT_TEXT }}>
+          Every saved lesson across all students, including one-time students and previously deleted records.
+        </p>
+
+        {/* Search box */}
+        {entries.length > 0 && (
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by student name…"
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: THEME.surface2, border: `1px solid ${THEME.border}`,
+              borderRadius: 10, padding: "10px 13px",
+              color: THEME.text, fontSize: 14, fontFamily: FONT_TEXT,
+              outline: "none", marginBottom: 14,
+            }}
+          />
+        )}
+
+        {entries.length === 0 ? (
+          <div style={{
+            padding: "32px 20px", textAlign: "center",
+            border: `1px dashed ${THEME.border}`, borderRadius: 11,
+            color: THEME.textTertiary, fontSize: 14, fontFamily: FONT_TEXT,
+            fontStyle: "italic", lineHeight: 1.5,
+          }}>
+            No saved lessons yet.<br />Lessons appear here once you save them from a student's lesson page.
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{
+            padding: "24px 16px", textAlign: "center",
+            color: THEME.textTertiary, fontSize: 13, fontFamily: FONT_TEXT,
+            fontStyle: "italic",
+          }}>
+            No lessons match "{searchQuery}".
+          </div>
+        ) : (
+          <Card style={{ padding: 0, marginBottom: 14 }}>
+            {filtered.map(({ lesson, studentId }, i) => {
+              const isOrphan = !rosterIds.has(studentId);
+              const snap = lesson.studentSnapshot || {};
+              const name = snap.name || "(unknown student)";
+              const meta = [
+                snap.trainingType,
+                snap.stage,
+                snap.retrain ? "Retrain" : null,
+              ].filter(Boolean).join(" · ");
+              const isConfirming = confirmDelete === lesson.id;
+              return (
+                <div key={lesson.id} style={{
+                  borderBottom: i < filtered.length - 1 ? `0.5px solid ${THEME.separator}` : "none",
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "12px 14px",
+                  }}>
+                    <button onClick={() => onSelectLesson(lesson, studentId, snap)} style={{
+                      flex: 1, background: "transparent", border: "none",
+                      padding: 0, textAlign: "left", cursor: "pointer",
+                      color: THEME.text, fontFamily: FONT_TEXT, minWidth: 0,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: -0.2, color: THEME.text, lineHeight: 1.3 }}>
+                          {name}
+                        </div>
+                        {lesson.isDraft && (
+                          <span style={{
+                            background: THEME.red, color: "#fff",
+                            fontSize: 9, fontWeight: 800, letterSpacing: 0.5,
+                            padding: "2px 6px", borderRadius: 4,
+                            fontFamily: FONT_MONO, lineHeight: 1.2,
+                          }}>DRAFT</span>
+                        )}
+                        {isOrphan && (
+                          <span style={{
+                            background: THEME.surface2, color: THEME.textTertiary,
+                            border: `0.5px solid ${THEME.border}`,
+                            fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                            padding: "2px 6px", borderRadius: 4,
+                            fontFamily: FONT_MONO, lineHeight: 1.2,
+                          }}>ONE-TIME</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: THEME.textTertiary, fontFamily: FONT_MONO, marginBottom: 2 }}>
+                        {formatDate(lesson.timestamp)}
+                      </div>
+                      <div style={{ fontSize: 12, color: THEME.textSecondary, fontFamily: FONT_TEXT, lineHeight: 1.4 }}>
+                        {meta}{meta && " · "}{lessonSummary(lesson)}
+                      </div>
+                    </button>
+                    {isConfirming ? (
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => deleteLesson(studentId, lesson.id)} style={{
+                          background: THEME.red, border: "none", borderRadius: 8,
+                          color: "#fff", fontSize: 12, fontWeight: 600,
+                          padding: "6px 11px", cursor: "pointer",
+                        }}>Delete</button>
+                        <button onClick={() => setConfirmDelete(null)} style={{
+                          background: THEME.surface2, border: `1px solid ${THEME.border}`,
+                          borderRadius: 8, color: THEME.textSecondary,
+                          fontSize: 13, padding: "9px 14px", minHeight: 36, cursor: "pointer",
+                        }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDelete(lesson.id)} aria-label="Remove lesson" style={{
+                        background: "transparent", border: "none",
+                        color: THEME.textQuaternary, cursor: "pointer",
+                        fontSize: 19, padding: "10px 12px", flexShrink: 0, lineHeight: 1,
+                      }}>×</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </Card>
+        )}
+
+        {entries.length > 0 && (
+          <div style={{ fontSize: 11, color: THEME.textTertiary, marginTop: 8, fontStyle: "italic", fontFamily: FONT_TEXT, padding: "0 4px" }}>
+            {entries.length} lesson{entries.length === 1 ? "" : "s"} total
+            {filtered.length !== entries.length && ` · ${filtered.length} shown`}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PastLessonsList({ student, onBack, onSelectLesson }) {
   const archiveKey = `cfi_lessons_${student.id}`;
-  // Drafts always sorted to the top; within each group, newest first
+  // Sorted by most recently edited first — a lesson you just touched (saved or
+  // edited) floats to the very top, even above older drafts. Falls back to
+  // creation timestamp for any lesson saved before updatedAt existed.
   const [lessons, setLessons] = useState(() => {
     const raw = ls.get(archiveKey, []);
     return [...raw].sort((a, b) => {
-      if (!!a.isDraft !== !!b.isDraft) return a.isDraft ? -1 : 1;
-      return (b.timestamp || 0) - (a.timestamp || 0);
+      const aT = a.updatedAt || a.timestamp || 0;
+      const bT = b.updatedAt || b.timestamp || 0;
+      return bT - aT;
     });
   });
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -6801,6 +7206,46 @@ export default function App() {
         // SHARED_SNIPPETS default already includes the new items, nothing to do.
       }
       ls.set(MEMORY_ITEMS_MIGRATION_KEY, true);
+    } catch {}
+  }
+
+  // One-time migration for v4.93: Memory Items becomes a GLOBAL category shared
+  // across all training types. Previously each type had its own Memory Items
+  // inside cfi_snippets_<TYPE>. This merges them all into a single global store
+  // (cfi_memory_items), de-duplicated by header text (case-insensitive), then
+  // strips Memory Items out of each per-type store so they can't diverge again.
+  const MEMORY_GLOBAL_MIGRATION_KEY = "cfi_memory_items_global_v4_93";
+  if (typeof window !== "undefined" && !ls.get(MEMORY_GLOBAL_MIGRATION_KEY, false)) {
+    try {
+      const merged = [];
+      const seen = new Set();
+      const pushUnique = (item) => {
+        const text = (typeof item === "string" ? item : (item && item.text) || "").trim();
+        const k = text.toLowerCase();
+        if (!k || seen.has(k)) return;
+        seen.add(k);
+        merged.push(item);
+      };
+      // Existing global first (in case this partially ran before), then each
+      // training type's stored Memory Items, in a stable order.
+      const existingGlobal = ls.get(MEMORY_KEY, null);
+      if (Array.isArray(existingGlobal)) existingGlobal.forEach(pushUnique);
+      for (const tt of ["IRA", "CAX", "CFII"]) {
+        const snips = ls.get(`cfi_snippets_${tt}`, null);
+        if (snips && Array.isArray(snips[MEMORY_GROUP])) snips[MEMORY_GROUP].forEach(pushUnique);
+      }
+      // If nothing was found anywhere, seed from the app defaults.
+      if (merged.length === 0) (SHARED_SNIPPETS[MEMORY_GROUP] || []).forEach(pushUnique);
+      ls.set(MEMORY_KEY, merged);
+      // Strip Memory Items from per-type stores so the global copy is the only one.
+      for (const tt of ["IRA", "CAX", "CFII"]) {
+        const snips = ls.get(`cfi_snippets_${tt}`, null);
+        if (snips && snips[MEMORY_GROUP]) {
+          delete snips[MEMORY_GROUP];
+          ls.set(`cfi_snippets_${tt}`, snips);
+        }
+      }
+      ls.set(MEMORY_GLOBAL_MIGRATION_KEY, true);
     } catch {}
   }
 
