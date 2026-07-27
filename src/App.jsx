@@ -7413,6 +7413,55 @@ export default function App() {
     } catch {}
   }
 
+  // One-time migration for v4.94: shorter snippet names in Maneuvers / Takeoffs /
+  // Landings. Editing SHARED_SNIPPETS only affects users who have never customized
+  // their snippets — everyone else reads cfi_snippets_<TYPE> from localStorage and
+  // would keep the old long names forever. This renames them in place and drops the
+  // two maneuvers that were removed.
+  //
+  // Renames match on exact old text only, so a snippet the user retitled themselves
+  // is left alone. Snippets may be plain strings or { text, subs } objects; both are
+  // handled. Runs once per device thanks to the version flag, so anything deliberately
+  // re-added afterwards won't be removed again.
+  const SNIPPET_RENAME_MIGRATION_KEY = "cfi_snippet_names_v4_94";
+  if (typeof window !== "undefined" && !ls.get(SNIPPET_RENAME_MIGRATION_KEY, false)) {
+    try {
+      const RENAMES = {
+        "Normal Takeoff and Climb": "Normal Takeoff",
+        "Soft-Field Takeoff and Climb": "Soft-Field Takeoff",
+        "Short-Field Takeoff and Maximum Performance Climb": "Short-Field Takeoff",
+        "Normal Approach and Landing": "Normal Landing",
+        "Soft-Field Approach and Landing": "Soft-Field Landing",
+        "Short-Field Approach and Landing": "Short-Field Landing",
+        "Power-Off 180 Accuracy Approach and Landing": "Power-Off 180",
+      };
+      const REMOVALS = new Set(["Spin Awareness", "Emergency Descent"]);
+      const textOf = (item) => (typeof item === "string" ? item : (item && item.text) || "");
+      for (const tt of ["IRA", "CAX", "CFII"]) {
+        const key = `cfi_snippets_${tt}`;
+        const snips = ls.get(key, null);
+        // null means this type was never customized — defaults already cover it.
+        if (!snips || typeof snips !== "object") continue;
+        let changed = false;
+        for (const cat of Object.keys(snips)) {
+          if (!Array.isArray(snips[cat])) continue;
+          const next = [];
+          for (const item of snips[cat]) {
+            const text = textOf(item);
+            if (REMOVALS.has(text)) { changed = true; continue; }
+            const renamed = RENAMES[text];
+            if (!renamed) { next.push(item); continue; }
+            changed = true;
+            next.push(typeof item === "string" ? renamed : { ...item, text: renamed });
+          }
+          snips[cat] = next;
+        }
+        if (changed) ls.set(key, snips);
+      }
+      ls.set(SNIPPET_RENAME_MIGRATION_KEY, true);
+    } catch {}
+  }
+
   const [lessonStates, setLessonStates] = useState(() => ls.get(LESSON_STATES_KEY, {}));
 
   // Save lessonStates to localStorage every time it changes.
